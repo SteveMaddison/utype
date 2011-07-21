@@ -33,6 +33,7 @@
 #define TITLE_SECONDS   10
 #define HISCORE_SECONDS	10
 #define ATTRACT_SECONDS 30
+#define FADE_SPEED	1
 
 #define HIGH_SCORES 9
 #define MAX_SCORE 999999999
@@ -144,14 +145,19 @@ void scroll( void ) {
 }
 
 void start_level( int level ){
+	FadeOut(FADE_SPEED,true);
 	SetTileTable(tiles1);
 	ClearVram();
 	map_load( (unsigned char*)level1_map );
 
-	while( 1 ){
+	FadeIn(FADE_SPEED,false);
+	while( scroll_speed ){
 		WaitVsync(1);
 		scroll();
 	}
+	WaitVsync(60);
+	FadeOut(FADE_SPEED,true);
+	ClearVram();
 } 
 
 void text_write( char x, char y, const char *text ) {
@@ -231,10 +237,11 @@ int wait_start( int delay ) {
 int show_title() {
 	int i;
 
-	SetTileTable(scoreboard_tiles);
+	FadeOut(FADE_SPEED,true);
 	ClearVram();
 	draw_starfield();
 	text_write((SCREEN_TILES_H-20)/2,24,"c2011 STEVE MADDISON");	
+	FadeIn(FADE_SPEED,false);
 
 	for( i=0 ; i<TITLE_SECONDS ; i++ ) {
 		text_write((SCREEN_TILES_H-10)/2,20,"PUSH START");
@@ -243,7 +250,6 @@ int show_title() {
 		text_write((SCREEN_TILES_H-10)/2,20,"          ");
 		if( wait_start(30) ) return 1;
 	}
-
 	return 0;
 }
 
@@ -251,6 +257,7 @@ int show_hi_scores() {
 #define HI_SCORE_TOP 9
 	int i;
 
+	FadeOut(FADE_SPEED,true);
 	ClearVram();
 	draw_starfield();
 
@@ -267,6 +274,7 @@ int show_hi_scores() {
 		text_write_number(21,HI_SCORE_TOP+i,hi_score[i],ALIGN_RIGHT);
 	}
 
+	FadeIn(FADE_SPEED,false);
 	if( wait_start(HISCORE_SECONDS*FPS) ) return 1;
 	return 0;
 }
@@ -276,11 +284,14 @@ int show_attract() {
 }
 
 void show_intro() {
-
+	//FadeOut(FADE_SPEED,true);
+	//FadeIn(FADE_SPEED,true);
 }
 
 int main(){
 	while(1) {
+		SetScrolling(0,0);
+		SetTileTable(scoreboard_tiles);
 		if( show_title() || show_hi_scores() || show_attract() ) {
 			// Start was pressed...
 			show_intro();
