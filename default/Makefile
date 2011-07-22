@@ -13,6 +13,7 @@ INFO=../gameinfo.properties
 ## Kernel settings
 KERNEL_DIR = ../../trunk/kernel
 KERNEL_OPTIONS  = -DVIDEO_MODE=3 -DINTRO_LOGO=0 -DSCROLLING=1
+KERNEL_OPTIONS += -DMAX_SPRITES=8 -DRAM_TILES_COUNT=16
 KERNEL_OPTIONS += -DFIRST_RENDER_LINE=28 -DSCREEN_TILES_V=26
 
 
@@ -59,6 +60,9 @@ all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
 
 ../data/scoreboard.inc: ../data/scoreboard.png ../data/scoreboard.gconvert.xml
 	gconvert ../data/scoreboard.gconvert.xml
+
+../data/sprites.inc: ../data/sprites.png ../data/sprites.gconvert.xml
+	gconvert ../data/sprites.gconvert.xml
 
 ../data/tiles1.inc: ../data/tiles1.png ../data/tiles1.gconvert.xml
 	gconvert ../data/tiles1.gconvert.xml

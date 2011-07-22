@@ -1,5 +1,5 @@
 /*
- *  Uzebox quick and dirty tutorial
+ *  A horizontal scrolling shooter for the Uzebox
  *  Copyright (C) 2011  Steve Maddison
  *
  *  This program is free software: you can redistribute it and/or modify
@@ -28,6 +28,7 @@
 
 #include "data/level1.inc"
 #include "data/scoreboard.inc"
+#include "data/sprites.inc"
 #include "data/tiles1.inc"
 
 #define TITLE_SECONDS   10
@@ -45,7 +46,30 @@ typedef enum {
 	ALIGN_RIGHT
 } align_t;
 
+#define SHIP_MIN_X 0
+#define SHIP_MAX_X ((SCREEN_TILES_H-3)*8)
+#define SHIP_MIN_Y 0
+#define SHIP_MAX_Y ((MAP_TILES_Y-2)*8)
+
+typedef struct {
+	int x;
+	int y;
+	int speed;
+} ship_t;
+#define SPRITE_SHIP 0
+
+typedef struct {
+	int x;
+	int y;
+} bullet_t;
+#define MAX_BULLETS     2
+#define BULLET_SPEED    4
+#define SPRITE_BULLET1	6
+
+
 // Globals
+ship_t ship;
+bullet_t bullet[MAX_BULLETS];
 unsigned char *map_pos = NULL;
 unsigned char *map_prev_column = NULL;
 char map_col_repeat = 0;
@@ -144,21 +168,93 @@ void scroll( void ) {
 	}
 }
 
+void clear_bullets( void ) {
+	int i;
+	for( i=0 ; i < MAX_BULLETS ; i++ ) {
+		sprites[SPRITE_BULLET1+i].tileIndex = 0;
+	}
+}
+
+int new_bullet( char tile ) {
+	int i;
+	for( i=0 ; i < MAX_BULLETS ; i++ ) {
+		if( sprites[SPRITE_BULLET1+i].tileIndex == 0 ) {
+			sprites[SPRITE_BULLET1+i].tileIndex = tile;
+			bullet[i].x = ship.x + 24;
+			bullet[i].y = ship.y + 6;
+			return i;
+		}
+	}
+	return -1; // No bullet slots left.
+}
+
 void start_level( int level ){
+	int i;
+	unsigned int frame = 0;
+	int bullet_throttle = 0;
+
 	FadeOut(FADE_SPEED,true);
 	SetTileTable(tiles1);
 	ClearVram();
+	SetSpriteVisibility(true);
 	map_load( (unsigned char*)level1_map );
 
+	MapSprite(0, ship_map);
+	ship.x = 16;
+	ship.y = SHIP_MAX_Y/2;
+	ship.speed = 1;
+
 	FadeIn(FADE_SPEED,false);
-	while( scroll_speed ){
+	while( scroll_speed ) {
+		unsigned int buttons = ReadJoypad(0);
+
 		WaitVsync(1);
 		scroll();
+		
+		if( buttons & BTN_LEFT ) {
+			ship.x -= ship.speed;
+			if( ship.x < SHIP_MIN_X ) ship.x = SHIP_MIN_X;
+		}
+		else if( buttons & BTN_RIGHT ) {
+			ship.x += ship.speed;
+			if( ship.x > SHIP_MAX_X ) ship.x = SHIP_MAX_X;
+		}
+		if( buttons & BTN_UP ) {
+			ship.y -= ship.speed;
+			if( ship.y < SHIP_MIN_Y ) ship.y = SHIP_MIN_Y;
+		}
+		else if( buttons & BTN_DOWN ) {
+			ship.y += ship.speed;
+			if( ship.y > SHIP_MAX_Y ) ship.y = SHIP_MAX_Y;
+		}
+		if( buttons & BTN_B ) {
+			if( bullet_throttle == 0 ) {
+				new_bullet(4);
+				bullet_throttle = 12;
+			}
+		}
+
+		MoveSprite(0, ship.x,ship.y, 3,2);
+		for( i=0 ; i<MAX_BULLETS ; i++ ) {
+			if( sprites[SPRITE_BULLET1+i].tileIndex ) {
+				bullet[i].x += BULLET_SPEED;
+				if( bullet[i].x >= SCREEN_TILES_H*8 ) {
+					sprites[SPRITE_BULLET1+i].tileIndex = 0;
+				}
+				else {
+					MoveSprite(SPRITE_BULLET1+i, bullet[i].x,bullet[i].y, 1,1);
+				}
+			}
+		}
+
+		frame++;
+		if( bullet_throttle ) bullet_throttle--;
 	}
 	WaitVsync(60);
 	FadeOut(FADE_SPEED,true);
+	SetSpriteVisibility(false);
 	ClearVram();
-} 
+}
 
 void text_write( char x, char y, const char *text ) {
 	char *p = (char*)text;
@@ -245,10 +341,10 @@ int show_title() {
 
 	for( i=0 ; i<TITLE_SECONDS ; i++ ) {
 		text_write((SCREEN_TILES_H-10)/2,20,"PUSH START");
-		if( wait_start(30) ) return 1;
+		if( wait_start(FPS/2) ) return 1;
 
 		text_write((SCREEN_TILES_H-10)/2,20,"          ");
-		if( wait_start(30) ) return 1;
+		if( wait_start(FPS/2) ) return 1;
 	}
 	return 0;
 }
@@ -289,6 +385,7 @@ void show_intro() {
 }
 
 int main(){
+	SetSpritesTileTable(sprite_tiles);
 	while(1) {
 		SetScrolling(0,0);
 		SetTileTable(scoreboard_tiles);
