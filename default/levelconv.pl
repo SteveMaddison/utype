@@ -20,14 +20,21 @@ use strict;
 # Map ASCII characters in the input to tile numbers in the output.
 my %charmap = (
 	' ' => 0x00,	# Blank
-	'_' => 0x01,	# Ceiling
-	'~' => 0x02,	# Floor
-	'(' => 0x03,	# Platform (left)
-	'=' => 0x04,	# Platform (middle)
-	')' => 0x05,	# Platform (right)
-	'<' => 0x06,	# Post (left)
-	'|' => 0x07,	# Post (middle)
-	'>' => 0x08	# Post (right)
+	'.' => 0x01,	# Alt. BG
+	'x' => 0x02,	# Alt. BG
+	'*' => 0x03,	# Alt. BG
+	'{' => 0x04,	# Alt. BG
+	'-' => 0x05,	# Alt. BG
+	'o' => 0x06,	# Alt. BG
+	'@' => 0x07,	# Alt. BG
+	'_' => 0x08,	# Ceiling
+	'~' => 0x09,	# Floor
+	'(' => 0x0a,	# Platform (left)
+	'=' => 0x0b,	# Platform (middle)
+	')' => 0x0c,	# Platform (right)
+	'<' => 0x0d,	# Post (left)
+	'|' => 0x0e,	# Post (middle)
+	'>' => 0x0f		# Post (right)
 );
 
 my $width = 0;
