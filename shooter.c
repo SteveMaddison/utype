@@ -215,6 +215,18 @@ int new_bullet( char tile ) {
 	return -1; // No bullet slots left.
 }
 
+void update_bullet( int b ) {
+	if( sprites[SPRITE_BULLET1+b].tileIndex ) {
+		bullet[b].x += BULLET_SPEED;
+		if( bullet[b].x >= SCREEN_TILES_H*8 ) {
+			sprites[SPRITE_BULLET1+b].tileIndex = 0;
+		}
+		else {
+			MoveSprite(SPRITE_BULLET1+b, bullet[b].x,bullet[b].y, 1,1);
+		}
+	}
+}
+
 int col_check( int sprite ) {
 		unsigned char smap = sprite_col_map[sprites[sprite].tileIndex];
 
@@ -232,6 +244,13 @@ int col_check( int sprite ) {
 			unsigned char *tile = &vram[0] + (tile_y * VRAM_TILES_H) + tile_x;
 			
 			// Build up a bitmap representing a 2x2 grid extending from the tile.
+			// +-----+-----+
+			// |15 14|11 10|
+			// |13 12| 9  8|
+			// +-----+-----+
+			// | 7  6| 3  2|
+			// | 5  4| 1  0|
+			// +-----+-----+
 			unsigned int t = (bg_col_map[(*tile)-RAM_TILES_COUNT] << 12)
 						   | (bg_col_map[(*(tile+1))-RAM_TILES_COUNT] << 8);
 			if( tile_y < MAP_TILES_Y )
@@ -327,15 +346,7 @@ void start_level( int level ){
 
 		MoveSprite(0, ship.x,ship.y, 3,2);
 		for( i=0 ; i<MAX_BULLETS ; i++ ) {
-			if( sprites[SPRITE_BULLET1+i].tileIndex ) {
-				bullet[i].x += BULLET_SPEED;
-				if( bullet[i].x >= SCREEN_TILES_H*8 ) {
-					sprites[SPRITE_BULLET1+i].tileIndex = 0;
-				}
-				else {
-					MoveSprite(SPRITE_BULLET1+i, bullet[i].x,bullet[i].y, 1,1);
-				}
-			}
+			update_bullet(i);
 		}
 
 		// Collison detection
@@ -348,7 +359,7 @@ void start_level( int level ){
 					}
 					else if( i < SPRITE_BULLET1+MAX_BULLETS ) {
 						// Bullet hit something...
-						sprites[SPRITE_BULLET1+i].tileIndex = 0;
+						sprites[i].tileIndex = 0;
 					}
 				}
 			}
