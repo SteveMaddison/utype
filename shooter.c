@@ -23,7 +23,6 @@
 #include <uzebox.h>
 
 #define MAP_TILES_Y  24
-#define VRAM_TILES_X 32
 #define FPS          60
 
 #include "data/level1.inc"
@@ -34,7 +33,7 @@
 #define TITLE_SECONDS   10
 #define HISCORE_SECONDS	10
 #define ATTRACT_SECONDS 30
-#define FADE_SPEED	1
+#define FADE_SPEED		1
 
 #define HIGH_SCORES 9
 #define MAX_SCORE 999999999
@@ -56,7 +55,7 @@ typedef struct {
 	int y;
 	int speed;
 } ship_t;
-#define SPRITE_SHIP 0
+#define SPRITE_SHIP      0
 
 typedef struct {
 	int x;
@@ -83,6 +82,10 @@ char scroll_speed = 0;
 //  +---+---+
 //  | 2 | 1 |
 //  +---+---+
+#define COL_LEFT    0x0a
+#define COL_RIGHT   0x05
+#define COL_TOP     0x0c
+#define COL_BOTTOM  0x03
 const unsigned char sprite_col_map[] = {
 	0x00, 0x0b, 0x03, 0x02, 0x0f, 0x0f, 0x00, 0x00,
 	0x00, 0x0f, 0x0e, 0x0c, 0x0f, 0x0f, 0x00, 0x00,
@@ -164,6 +167,8 @@ void map_load( unsigned char *map_data ) {
 	map_column = 0;
 	map_prev_column = NULL;
 	scroll_speed = 5;
+	SetScrolling(0,0);
+	ClearVram();
 
 	// Draw in the first screen-full of columns.
 	for( x=0 ; x<VRAM_TILES_H ; x++ ) {
@@ -208,14 +213,65 @@ int new_bullet( char tile ) {
 	return -1; // No bullet slots left.
 }
 
+int col_check( int sprite ) {
+		unsigned char smap = sprite_col_map[sprites[sprite].tileIndex];
+
+		if( smap==0 ) {
+			// If all empty, no chance of collision.
+			return 0;
+		}
+		else {
+			int tile_x = (Screen.scrollX + sprites[sprite].x) / 8;
+			int offset_x = (Screen.scrollX + sprites[sprite].x) % 8;
+			int tile_y = sprites[sprite].y / 8;
+			int offset_y = sprites[sprite].y % 8;
+
+			// This is the tile the top-left corner of the sprite occupies.
+			unsigned char *tile = &vram[0] + (tile_y * VRAM_TILES_H) + tile_x;
+			
+			// Build up a bitmap representing a 2x2 grid extending from the tile.
+			unsigned int t = (bg_col_map[(*tile)-RAM_TILES_COUNT] << 12)
+						   | (bg_col_map[(*(tile+1))-RAM_TILES_COUNT] << 8);
+			if( tile_y < MAP_TILES_Y )
+				t |= (bg_col_map[(*(tile+VRAM_TILES_H))-RAM_TILES_COUNT] << 4)
+				  | (bg_col_map[(*(tile+VRAM_TILES_H+1))-RAM_TILES_COUNT]);
+			// No chance of collision if all tiles are empty.
+			if( t == 0 ) {
+				return 0;
+			}
+
+			// Do the same for the sprite, taking the offset into the 2x2
+			// tile grid into account.
+			unsigned int s = smap << 12;
+			if( offset_x > 3 ) {
+				s >>= 4;
+			}
+			else if( offset_x > 0 ) { 
+				s |= s >> 2;
+			}
+			if( offset_y > 3 ) {
+				s >>= 8;
+			}
+			else if( offset_y > 0 ) { 
+				s >>= 4;
+			}
+
+			// Now just AND the bitmasks - a collision will produce > 0;
+			if( s & t ) {
+				return 1;
+			}
+		}
+		return 0;
+}
+
 void start_level( int level ){
 	int i;
 	unsigned int frame = 0;
 	int bullet_throttle = 0;
+	bool done = false;
 
 	FadeOut(FADE_SPEED,true);
 	SetTileTable(tiles1);
-	ClearVram();
 	SetSpriteVisibility(true);
 	map_load( (unsigned char*)level1_map );
 
@@ -225,7 +281,7 @@ void start_level( int level ){
 	ship.speed = 1;
 
 	FadeIn(FADE_SPEED,false);
-	while( scroll_speed ) {
+	while( !done ) {
 		unsigned int buttons = ReadJoypad(0);
 
 		WaitVsync(1);
@@ -263,6 +319,23 @@ void start_level( int level ){
 				}
 				else {
 					MoveSprite(SPRITE_BULLET1+i, bullet[i].x,bullet[i].y, 1,1);
+				}
+			}
+		}
+
+		// Collison detection
+		for( i=0 ; i<MAX_SPRITES ; i++ ) {
+			if( sprites[i].tileIndex ) {
+				if( col_check(i) ) {
+					if( i<SPRITE_BULLET1 ) {
+						// Ship has crashed
+						done = 1;
+						scroll_speed = 0;
+					}
+					else if( i < SPRITE_BULLET1+MAX_BULLETS ) {
+						// Bullet hit something...
+						sprites[SPRITE_BULLET1+i].tileIndex = 0;
+					}
 				}
 			}
 		}
@@ -409,7 +482,7 @@ int main(){
 	while(1) {
 		SetScrolling(0,0);
 		SetTileTable(scoreboard_tiles);
-		if( show_title() || show_hi_scores() || show_attract() ) {
+		if( show_title() || show_attract() || show_hi_scores() ) {
 			// Start was pressed...
 			show_intro();
 			start_level(1);
