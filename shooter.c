@@ -21,6 +21,8 @@
 #include <stdlib.h>
 #include <avr/pgmspace.h>
 #include <uzebox.h>
+// Not in header...
+void SetScrolling(char sx,char sy);
 
 #define MAP_TILES_Y  24
 #define FPS          60
@@ -71,8 +73,8 @@ ship_t ship;
 bullet_t bullet[MAX_BULLETS];
 unsigned char *map_pos = NULL;
 unsigned char *map_prev_column = NULL;
-char map_col_repeat = 0;
 char map_column = 0;
+char map_col_repeat = 0;
 char scroll_speed = 0;
 
 // Collision detection bitmaps for tiles.
@@ -165,9 +167,9 @@ void map_load( unsigned char *map_data ) {
 	// Reset our map housekeeping.
 	map_pos = map_data;
 	map_column = 0;
+	map_col_repeat = 0;
 	map_prev_column = NULL;
 	scroll_speed = 5;
-	SetScrolling(0,0);
 	ClearVram();
 
 	// Draw in the first screen-full of columns.
@@ -193,10 +195,10 @@ void scroll( void ) {
 	}
 }
 
-void clear_bullets( void ) {
+void clear_sprites( void ) {
 	int i;
-	for( i=0 ; i < MAX_BULLETS ; i++ ) {
-		sprites[SPRITE_BULLET1+i].tileIndex = 0;
+	for( i=0 ; i < MAX_SPRITES ; i++ ) {
+		sprites[i].tileIndex = 0;
 	}
 }
 
@@ -243,19 +245,30 @@ int col_check( int sprite ) {
 			// Do the same for the sprite, taking the offset into the 2x2
 			// tile grid into account.
 			unsigned int s = smap << 12;
-			if( offset_x > 3 ) {
-				s >>= 4;
-			}
-			else if( offset_x > 0 ) { 
-				s |= s >> 2;
-			}
-			if( offset_y > 3 ) {
-				s >>= 8;
-			}
-			else if( offset_y > 0 ) { 
-				s >>= 4;
+			if( offset_x != 0 ) {
+				// OR to the right
+				s |= ((s & 0x5000) >> 3);
+				s |= ((s & 0xa000) >> 1);
+				if( offset_x > 3 ) {
+					// Shift to two bytes right
+					s = ((s & 0x0a00) >> 1)
+					  | ((s & 0x5000) >> 3)
+					  | ((s & 0xa000) >> 1);
+				}
 			}
 
+			if( offset_y > 0 ) {
+				// OR downwards
+				s |= ((s & 0x3300) >> 6);
+				s |= ((s & 0xcc00) >> 2);
+				if( offset_y > 3 ) {
+					// Shift downwards
+					s = ((s & 0xcc00) >> 2)
+					  | ((s & 0x3300) >> 6)
+					  | ((s & 0x00cc) >> 2);
+				}
+			}
+	
 			// Now just AND the bitmasks - a collision will produce > 0;
 			if( s & t ) {
 				return 1;
@@ -271,8 +284,10 @@ void start_level( int level ){
 	bool done = false;
 
 	FadeOut(FADE_SPEED,true);
+	clear_sprites();
 	SetTileTable(tiles1);
 	SetSpriteVisibility(true);
+	SetScrolling(0,0);
 	map_load( (unsigned char*)level1_map );
 
 	MapSprite(0, ship_map);
@@ -330,7 +345,6 @@ void start_level( int level ){
 					if( i<SPRITE_BULLET1 ) {
 						// Ship has crashed
 						done = 1;
-						scroll_speed = 0;
 					}
 					else if( i < SPRITE_BULLET1+MAX_BULLETS ) {
 						// Bullet hit something...
