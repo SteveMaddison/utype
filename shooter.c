@@ -63,10 +63,10 @@ typedef struct {
 	int x;
 	int y;
 } bullet_t;
+#define SPRITE_BULLET1  6
 #define MAX_BULLETS     2
 #define BULLET_SPEED    4
-#define SPRITE_BULLET1	6
-
+#define BULLET_DELAY   20
 
 // Globals
 ship_t ship;
@@ -340,7 +340,7 @@ void start_level( int level ){
 		if( buttons & BTN_B ) {
 			if( bullet_throttle == 0 ) {
 				new_bullet(4);
-				bullet_throttle = 12;
+				bullet_throttle = BULLET_DELAY;
 			}
 		}
 
