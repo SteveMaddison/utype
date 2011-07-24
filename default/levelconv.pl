@@ -21,11 +21,11 @@ use strict;
 my %charmap = (
 	' ' => 0x00,	# Blank
 	'.' => 0x01,	# Alt. BG
-	'x' => 0x02,	# Alt. BG
+	'+' => 0x02,	# Alt. BG
 	'*' => 0x03,	# Alt. BG
 	'{' => 0x04,	# Alt. BG
 	'-' => 0x05,	# Alt. BG
-	'o' => 0x06,	# Alt. BG
+	'O' => 0x06,	# Alt. BG
 	'@' => 0x07,	# Alt. BG
 	'_' => 0x08,	# Ceiling
 	'~' => 0x09,	# Floor
@@ -34,7 +34,39 @@ my %charmap = (
 	')' => 0x0c,	# Platform (right)
 	'<' => 0x0d,	# Post (left)
 	'|' => 0x0e,	# Post (middle)
-	'>' => 0x0f		# Post (right)
+	'>' => 0x0f,	# Post (right)
+	'a' => 0x20,
+	'b' => 0x21,
+	'c' => 0x22,
+	'd' => 0x23,
+	'e' => 0x24,
+	'f' => 0x25,
+	'g' => 0x26,
+	'h' => 0x27,
+	'i' => 0x28,
+	'j' => 0x29,
+	'k' => 0x2a,
+	'l' => 0x2b,
+	'm' => 0x2c,
+	'n' => 0x2d,
+	'o' => 0x2e,
+	'p' => 0x2f,
+	'q' => 0x30,
+	'r' => 0x31,
+	's' => 0x32,
+	't' => 0x33,
+	'u' => 0x34,
+	'v' => 0x35,
+	'w' => 0x36,
+	'x' => 0x37,
+	'y' => 0x38,
+	'z' => 0x39,
+	'A' => 0x3a,
+	'B' => 0x3b,
+	'C' => 0x3c,
+	'D' => 0x3d,
+	'E' => 0x3e,
+	'F' => 0x3f
 );
 
 my $width = 0;
@@ -80,7 +112,7 @@ print "#define REPEAT(x) 0xff, x\n";
 print "#define " . uc($name) . "_MAP_WIDTH  $width\n";
 print "#define " . uc($name) . "_MAP_HEIGHT $height\n";
 print "\n";
-print "const unsigned char ${name}_map[] = {\n";
+print "const unsigned char ${name}_map[] PROGMEM = {\n";
 
 # Keep track of any subsequent identical columns.
 my $prev_coldata = '';

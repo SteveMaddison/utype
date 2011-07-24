@@ -55,6 +55,10 @@ LINKONLYOBJECTS =
 ## Include Directories
 INCLUDES = -I"$(KERNEL_DIR)" 
 
+## Included data files
+DATA_FILES =  ../data/scoreboard.inc ../data/sprites.inc
+DATA_FILES += ../data/tiles1.inc ../data/level1.inc
+
 ## Build
 all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
 
@@ -67,7 +71,7 @@ all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
 ../data/tiles1.inc: ../data/tiles1.png ../data/tiles1.gconvert.xml
 	gconvert ../data/tiles1.gconvert.xml
 
-../data/level1.inc: ../data/level1.txt
+../data/level1.inc: ../data/level1.txt levelconv.pl
 	./levelconv.pl $< > $@
 
 ## Compile Kernel files
@@ -87,7 +91,7 @@ uzeboxVideoEngine.o: $(KERNEL_DIR)/uzeboxVideoEngine.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ## Compile game sources
-$(GAME).o: ../$(GAME).c
+$(GAME).o: ../$(GAME).c $(DATA_FILES)
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link

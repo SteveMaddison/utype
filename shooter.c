@@ -32,15 +32,48 @@ void SetScrolling(char sx,char sy);
 #include "data/sprites.inc"
 #include "data/tiles1.inc"
 
+#define EXPLOSION_FRAMES 2
+const char explosion_map_3x2[EXPLOSION_FRAMES][8] PROGMEM = {
+	{ 3,2,
+		16, 17, 0,
+		24, 25, 16 },
+	{ 3,2,
+		18, 19, 0,
+		26, 27, 18 }
+};
+
+// Collision detection bitmaps for tiles.
+// For each tile, determine which quadrants are solid.
+//  +---+---+
+//  | 8 | 4 |
+//  +---+---+
+//  | 2 | 1 |
+//  +---+---+
+#define COL_LEFT    0x0a
+#define COL_RIGHT   0x05
+#define COL_TOP     0x0c
+#define COL_BOTTOM  0x03
+const unsigned char sprite_col_map[] = {
+	0x00, 0x0b, 0x03, 0x02, 0x0f, 0x0f, 0x00, 0x00,
+	0x00, 0x0f, 0x0e, 0x0c, 0x0f, 0x0f, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+};
+const unsigned char bg_col_map[] = {
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x05, 0x0f, 0x0a,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f,
+	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f,
+	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f,
+	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f
+};
+
 #define TITLE_SECONDS   10
 #define HISCORE_SECONDS	10
 #define ATTRACT_SECONDS 30
 #define FADE_SPEED		1
-
-#define HIGH_SCORES 9
-#define MAX_SCORE 999999999
-char hi_name[HIGH_SCORES][4] = { "SAM\0","TOM\0","UZE\0","TUX\0","JIM\0","B*A\0","ABC\0","XYZ\0", "123\0" };
-long hi_score[HIGH_SCORES]   = { 1000000, 900000, 800000, 700000, 600000, 500000, 400000, 300000, 200000 };
 
 typedef enum {
 	ALIGN_LEFT=0,
@@ -66,16 +99,6 @@ typedef struct {
 } ship_t;
 #define SPRITE_SHIP      0
 
-#define EXPLOSION_FRAMES 2
-const char explosion_map_3x2[EXPLOSION_FRAMES][8] PROGMEM = {
-	{ 3,2,
-		16, 17, 0,
-		24, 25, 16 },
-	{ 3,2,
-		18, 19, 0,
-		26, 27, 18 }
-};
-
 typedef struct {
 	int x;
 	int y;
@@ -94,29 +117,10 @@ char map_column = 0;
 char map_col_repeat = 0;
 char scroll_speed = 0;
 
-// Collision detection bitmaps for tiles.
-// For each tile, determine which quadrants are solid.
-//  +---+---+
-//  | 8 | 4 |
-//  +---+---+
-//  | 2 | 1 |
-//  +---+---+
-#define COL_LEFT    0x0a
-#define COL_RIGHT   0x05
-#define COL_TOP     0x0c
-#define COL_BOTTOM  0x03
-const unsigned char sprite_col_map[] = {
-	0x00, 0x0b, 0x03, 0x02, 0x0f, 0x0f, 0x00, 0x00,
-	0x00, 0x0f, 0x0e, 0x0c, 0x0f, 0x0f, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-};
-const unsigned char bg_col_map[] = {
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x05, 0x0f, 0x0a,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-};
+#define HIGH_SCORES 9
+#define MAX_SCORE 999999999
+char hi_name[HIGH_SCORES][4] = { "SAM\0","TOM\0","UZE\0","TUX\0","JIM\0","B*A\0","ABC\0","XYZ\0", "123\0" };
+long hi_score[HIGH_SCORES]   = { 1000000, 900000, 800000, 700000, 600000, 500000, 400000, 300000, 200000 };
 
 void map_draw_column( void ) {
 	int y = 0;
@@ -128,17 +132,17 @@ void map_draw_column( void ) {
 		p = map_prev_column;
 	}
 	else {
-		if( *p == 0xff ) {
+		if( pgm_read_byte(p) == 0xff ) {
 			// Magic...
 			p++;
-			if( *p == 0xff ) {
+			if( pgm_read_byte(p) == 0xff ) {
 				// End of map
 				scroll_speed = 0;
 				return;
 			}
 			else {
 				// Repeat previous column
-				map_col_repeat = *p;
+				map_col_repeat = pgm_read_byte(p);
 				map_pos += 2;
 				p = map_prev_column;
 			}
@@ -147,18 +151,18 @@ void map_draw_column( void ) {
 
 	// Draw the actual column.
 	while( y<MAP_TILES_Y ) {
-		if( *p == 0xff ) {
+		if( pgm_read_byte(p) == 0xff ) {
 			// Repeat previous tile
-			unsigned char t = *(p-1);
+			unsigned char t = pgm_read_byte(p-1);
 			p++;
-			for( c=*p ; c>0 ; c-- ) {
+			for( c=pgm_read_byte(p) ; c>0 ; c-- ) {
 				SetTile(map_column,y,t);
 				y++;
 			}
 			p++;
 		}
 		else {
-			SetTile(map_column,y,*p);
+			SetTile(map_column,y,pgm_read_byte(p));
 			p++;
 			y++;
 		}
@@ -543,11 +547,11 @@ int main(){
 	while(1) {
 		SetScrolling(0,0);
 		SetTileTable(scoreboard_tiles);
-		if( show_title() || show_attract() || show_hi_scores() ) {
+		//if( show_title() || show_attract() || show_hi_scores() ) {
 			// Start was pressed...
 			show_intro();
 			start_level(1);
-		}
+		//}
 	}
 }
 
