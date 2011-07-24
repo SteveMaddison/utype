@@ -52,12 +52,29 @@ typedef enum {
 #define SHIP_MIN_Y 0
 #define SHIP_MAX_Y ((MAP_TILES_Y-2)*8)
 
+typedef enum {
+	STATUS_OK,
+	STATUS_EXPLODING
+} status_t;
+
 typedef struct {
 	int x;
 	int y;
 	int speed;
+	status_t status;
+	char anim_step;
 } ship_t;
 #define SPRITE_SHIP      0
+
+#define EXPLOSION_FRAMES 2
+const char explosion_map_3x2[EXPLOSION_FRAMES][8] PROGMEM = {
+	{ 3,2,
+		16, 17, 0,
+		24, 25, 16 },
+	{ 3,2,
+		18, 19, 0,
+		26, 27, 18 }
+};
 
 typedef struct {
 	int x;
@@ -313,6 +330,7 @@ void start_level( int level ){
 	ship.x = 16;
 	ship.y = SHIP_MAX_Y/2;
 	ship.speed = 1;
+	ship.status = STATUS_OK;
 
 	FadeIn(FADE_SPEED,false);
 	while( !done ) {
@@ -321,30 +339,47 @@ void start_level( int level ){
 		WaitVsync(1);
 		scroll();
 		
-		if( buttons & BTN_LEFT ) {
-			ship.x -= ship.speed;
-			if( ship.x < SHIP_MIN_X ) ship.x = SHIP_MIN_X;
-		}
-		else if( buttons & BTN_RIGHT ) {
-			ship.x += ship.speed;
-			if( ship.x > SHIP_MAX_X ) ship.x = SHIP_MAX_X;
-		}
-		if( buttons & BTN_UP ) {
-			ship.y -= ship.speed;
-			if( ship.y < SHIP_MIN_Y ) ship.y = SHIP_MIN_Y;
-		}
-		else if( buttons & BTN_DOWN ) {
-			ship.y += ship.speed;
-			if( ship.y > SHIP_MAX_Y ) ship.y = SHIP_MAX_Y;
-		}
-		if( buttons & BTN_B ) {
-			if( bullet_throttle == 0 ) {
-				new_bullet(4);
-				bullet_throttle = BULLET_DELAY;
+		if( ship.status == STATUS_OK ) {
+			if( buttons & BTN_LEFT ) {
+				ship.x -= ship.speed;
+				if( ship.x < SHIP_MIN_X ) ship.x = SHIP_MIN_X;
 			}
+			else if( buttons & BTN_RIGHT ) {
+				ship.x += ship.speed;
+				if( ship.x > SHIP_MAX_X ) ship.x = SHIP_MAX_X;
+			}
+			if( buttons & BTN_UP ) {
+				ship.y -= ship.speed;
+				if( ship.y < SHIP_MIN_Y ) ship.y = SHIP_MIN_Y;
+			}
+			else if( buttons & BTN_DOWN ) {
+				ship.y += ship.speed;
+				if( ship.y > SHIP_MAX_Y ) ship.y = SHIP_MAX_Y;
+			}
+			if( buttons & BTN_B ) {
+				if( bullet_throttle == 0 ) {
+					new_bullet(4);
+					bullet_throttle = BULLET_DELAY;
+				}
+			}
+			MoveSprite(0, ship.x,ship.y, 3,2);
+		}
+		else if( ship.status == STATUS_EXPLODING ) {
+			if( ship.anim_step == 16 )
+				MapSprite( 0, explosion_map_3x2[0] );
+
+			if( ship.anim_step == 8 )
+				MapSprite( 0, explosion_map_3x2[1] );
+			
+			if( ship.anim_step == 0 ) {
+				for( i=0 ; i<SPRITE_BULLET1 ; i++ ) {
+					sprites[i].tileIndex = 0;
+				}
+				done = 1;
+			}
+			ship.anim_step--;
 		}
 
-		MoveSprite(0, ship.x,ship.y, 3,2);
 		for( i=0 ; i<MAX_BULLETS ; i++ ) {
 			update_bullet(i);
 		}
@@ -355,7 +390,10 @@ void start_level( int level ){
 				if( col_check(i) ) {
 					if( i<SPRITE_BULLET1 ) {
 						// Ship has crashed
-						done = 1;
+						if( ship.status != STATUS_EXPLODING ) {
+							ship.status = STATUS_EXPLODING;
+							ship.anim_step = 16;
+						}
 					}
 					else if( i < SPRITE_BULLET1+MAX_BULLETS ) {
 						// Bullet hit something...
