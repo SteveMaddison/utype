@@ -197,15 +197,13 @@ void map_load( unsigned char *map_data ) {
 
 void scroll( void ) {
 	static char wait = 0;
-	static char pixels = 0;
 
 	if( scroll_speed ) {
 		wait--;
 		if( wait <= 0 ) {
 			Scroll(1,0);
-			if( ++pixels == 8 ) {
+			if( Screen.scrollX % 8 == 0 ) {
 				map_draw_column();
-				pixels = 0;
 			}
 			wait = scroll_speed;
 		}
