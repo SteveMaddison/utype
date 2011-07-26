@@ -108,7 +108,7 @@ typedef struct {
 	int y;
 } bullet_t;
 #define SPRITE_BULLET1  6
-#define MAX_BULLETS     2
+#define MAX_BULLETS     3
 #define BULLET_SPEED    4
 #define BULLET_DELAY   20
 
