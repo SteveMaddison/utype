@@ -23,18 +23,37 @@ my %charmap = (
 	'.' => 0x01,	# Alt. BG
 	'+' => 0x02,	# Alt. BG
 	'*' => 0x03,	# Alt. BG
-	'{' => 0x04,	# Alt. BG
-	'-' => 0x05,	# Alt. BG
-	'O' => 0x06,	# Alt. BG
-	'@' => 0x07,	# Alt. BG
-	'_' => 0x08,	# Ceiling
-	'~' => 0x09,	# Floor
-	'(' => 0x0a,	# Platform (left)
-	'=' => 0x0b,	# Platform (middle)
-	')' => 0x0c,	# Platform (right)
-	'<' => 0x0d,	# Post (left)
-	'|' => 0x0e,	# Post (middle)
-	'>' => 0x0f,	# Post (right)
+#	'{' => 0x04,	# Alt. BG
+#	'-' => 0x05,	# Alt. BG
+#	'O' => 0x06,	# Alt. BG
+#	'@' => 0x07,	# Alt. BG
+
+	'[' => 0x04,	# Pilar, TL
+	']' => 0x05,	# Pilar, TR
+	'{' => 0x0c,	# Pilar, BL
+	'}' => 0x0d,	# Pilar, BR
+
+	'#' => 0x06,	# Pilar Cap L
+	'?' => 0x07,	# Pilar Cap R
+	'|' => 0x0e,	# Pilar Bottom L
+	'%' => 0x0f,	# Pilar Bottom R
+
+	'/'	 => 0x10,	# Large Panel
+	'-'  => 0x11,
+	'='  => 0x12,
+	'\'' => 0x13,
+	'('  => 0x18,
+	'_'  => 0x19,
+	','  => 0x1a,
+	')'  => 0x1b,
+
+	'<'  => 0x14,	# Small panel
+	'^'  => 0x15,
+	'>'  => 0x16,
+	'\\' => 0x1c,
+	':'  => 0x1d,
+	';'  => 0x1e,
+
 	'a' => 0x20,
 	'b' => 0x21,
 	'c' => 0x22,

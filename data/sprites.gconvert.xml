@@ -3,8 +3,5 @@
 	<input file="../data/sprites.png" type="png" tile-width="8" tile-height="8"/>
 	<output file="../data/sprites.inc">
 		<tiles var-name="sprite_tiles"/>
-		<maps pointers-size="8">
-			<map var-name="ship_map" top="0" left="1" width="3" height="2"/>
-		</maps>
 	</output>
 </gfx-xform>

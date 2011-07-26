@@ -60,7 +60,7 @@ DATA_FILES =  ../data/scoreboard.inc ../data/sprites.inc
 DATA_FILES += ../data/tiles1.inc ../data/level1.inc
 
 ## Build
-all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze size
+all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze
 
 ../data/scoreboard.inc: ../data/scoreboard.png ../data/scoreboard.gconvert.xml
 	gconvert ../data/scoreboard.gconvert.xml
