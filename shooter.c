@@ -24,8 +24,8 @@
 // Not in header...
 void SetScrolling(char sx,char sy);
 
-#define MAP_TILES_Y  24
-#define FPS          60
+#define LEVEL_TILES_Y  24
+#define FPS            60
 
 #include "data/level1.inc"
 #include "data/level2.inc"
@@ -89,7 +89,7 @@ typedef enum {
 #define SHIP_MIN_X 0
 #define SHIP_MAX_X ((SCREEN_TILES_H-3)*8)
 #define SHIP_MIN_Y 0
-#define SHIP_MAX_Y ((MAP_TILES_Y-2)*8)
+#define SHIP_MAX_Y ((LEVEL_TILES_Y-2)*8)
 
 typedef enum {
 	STATUS_OK,
@@ -117,10 +117,10 @@ typedef struct {
 // Globals
 ship_t ship;
 bullet_t bullet[MAX_BULLETS];
-unsigned char *map_pos = NULL;
-unsigned char *map_prev_column = NULL;
-char map_column = 0;
-char map_col_repeat = 0;
+unsigned char *level_pos = NULL;
+unsigned char *level_prev_column = NULL;
+char level_column = 0;
+char level_col_repeat = 0;
 char scroll_speed = 0;
 
 #define HIGH_SCORES 9
@@ -128,80 +128,80 @@ char scroll_speed = 0;
 char hi_name[HIGH_SCORES][4] = { "SAM\0","TOM\0","UZE\0","TUX\0","JIM\0","B*A\0","ABC\0","XYZ\0", "123\0" };
 long hi_score[HIGH_SCORES]   = { 1000000, 900000, 800000, 700000, 600000, 500000, 400000, 300000, 200000 };
 
-void map_draw_column( void ) {
+void level_draw_column( void ) {
 	int y = 0;
 	int c = 0;
-	unsigned char *p = map_pos;
+	unsigned char *p = level_pos;
 
-	if( map_col_repeat ) {
+	if( level_col_repeat ) {
 		// Copy previous column.
-		p = map_prev_column;
+		p = level_prev_column;
 	}
 	else {
 		if( pgm_read_byte(p) == 0xff ) {
 			// Magic...
 			p++;
 			if( pgm_read_byte(p) == 0xff ) {
-				// End of map
+				// End of level
 				scroll_speed = 0;
 				return;
 			}
 			else {
 				// Repeat previous column
-				map_col_repeat = pgm_read_byte(p);
-				map_pos += 2;
-				p = map_prev_column;
+				level_col_repeat = pgm_read_byte(p);
+				level_pos += 2;
+				p = level_prev_column;
 			}
 		}
 	}
 
 	// Draw the actual column.
-	while( y<MAP_TILES_Y ) {
+	while( y<LEVEL_TILES_Y ) {
 		if( pgm_read_byte(p) == 0xff ) {
 			// Repeat previous tile
 			unsigned char t = pgm_read_byte(p-1);
 			p++;
 			for( c=pgm_read_byte(p) ; c>0 ; c-- ) {
-				SetTile(map_column,y,t);
+				SetTile(level_column,y,t);
 				y++;
 			}
 			p++;
 		}
 		else {
-			SetTile(map_column,y,pgm_read_byte(p));
+			SetTile(level_column,y,pgm_read_byte(p));
 			p++;
 			y++;
 		}
 	}
 
-	if( map_col_repeat ) {
-		map_col_repeat--;
+	if( level_col_repeat ) {
+		level_col_repeat--;
 	}
 	else {
-		map_prev_column = map_pos;
-		map_pos = p;
+		level_prev_column = level_pos;
+		level_pos = p;
 	}
 
-	map_column++;
-	if( map_column >= VRAM_TILES_H ) {
-		map_column = 0;
+	level_column++;
+	if( level_column >= VRAM_TILES_H ) {
+		level_column = 0;
 	}
 }
 
-void map_load( unsigned char *map_data ) {
+void level_load( unsigned char *level_data ) {
 	int x = 0;
 
-	// Reset our map housekeeping.
-	map_pos = map_data;
-	map_column = 0;
-	map_col_repeat = 0;
-	map_prev_column = NULL;
+	// Reset our level housekeeping.
+	level_pos = level_data;
+	level_column = 0;
+	level_col_repeat = 0;
+	level_prev_column = NULL;
 	scroll_speed = 5;
 	ClearVram();
 
 	// Draw in the first screen-full of columns.
 	for( x=0 ; x<VRAM_TILES_H ; x++ ) {
-		map_draw_column();
+		level_draw_column();
 	}
 }
 
@@ -213,7 +213,7 @@ void scroll( void ) {
 		if( wait <= 0 ) {
 			Scroll(1,0);
 			if( Screen.scrollX % 8 == 0 ) {
-				map_draw_column();
+				level_draw_column();
 			}
 			wait = scroll_speed;
 		}
@@ -278,7 +278,7 @@ int col_check( int sprite ) {
 			// +-----+-----+
 			unsigned int t = (bg_col_map[(*tile)-RAM_TILES_COUNT] << 12)
 						   | (bg_col_map[(*(tile+1))-RAM_TILES_COUNT] << 8);
-			if( tile_y < MAP_TILES_Y )
+			if( tile_y < LEVEL_TILES_Y )
 				t |= (bg_col_map[(*(tile+VRAM_TILES_H))-RAM_TILES_COUNT] << 4)
 				  | (bg_col_map[(*(tile+VRAM_TILES_H+1))-RAM_TILES_COUNT]);
 			// No chance of collision if all tiles are empty.
@@ -332,7 +332,7 @@ void start_level( int level ){
 	SetTileTable(tiles1);
 	SetSpriteVisibility(true);
 	SetScrolling(0,0);
-	map_load( (unsigned char*)level1_map );
+	level_load( (unsigned char*)level1_map );
 
 	MapSprite(0, ship_map);
 	ship.x = 16;
