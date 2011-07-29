@@ -35,17 +35,14 @@ void SetScrolling(char sx,char sy);
 #include "data/tiles2.inc"
 
 const char ship_map[] PROGMEM ={
-3,2
-,0x1,0x0,0x0,0x9,0xa,0xb};
+	3,2,	0x1,0x0,0x0,
+			0x9,0xa,0xb
+};
 
 #define EXPLOSION_FRAMES 2
-const char explosion_map_3x2[EXPLOSION_FRAMES][8] PROGMEM = {
-	{ 3,2,
-		16, 17, 0,
-		24, 25, 16 },
-	{ 3,2,
-		18, 19, 0,
-		26, 27, 18 }
+const char explosion_map_2x2[EXPLOSION_FRAMES][8] PROGMEM = {
+	{ 2,2,	16, 24, 25, 17 },
+	{ 2,2,	18, 26, 18, 19 }
 };
 
 // Collision detection bitmaps for tiles.
@@ -227,6 +224,20 @@ void clear_sprites( void ) {
 	}
 }
 
+void map_sprite_irreg( int sprite, const char *map ) {
+	int x,y;
+	char *t = (char*)(map+2);
+	for( y=0 ; y<pgm_read_byte(map+1) ; y++ ) {
+		for( x=0 ; y<pgm_read_byte(map) ; y++ ) {
+			if( pgm_read_byte(t) != 0 ) {
+				sprites[sprite].tileIndex = pgm_read_byte(t);
+				sprite++;
+			}
+			t++;
+		}
+	}
+}
+
 int new_bullet( char tile ) {
 	int i;
 	for( i=0 ; i < MAX_BULLETS ; i++ ) {
@@ -334,7 +345,11 @@ void start_level( int level ){
 	SetScrolling(0,0);
 	level_load( (unsigned char*)level1_map );
 
-	MapSprite(0, ship_map);
+	sprites[0].tileIndex = 1;
+	sprites[1].tileIndex = 0x09;
+	sprites[2].tileIndex = 0x0a;
+	sprites[3].tileIndex = 0x0b;
+
 	ship.x = 16;
 	ship.y = SHIP_MAX_Y/2;
 	ship.speed = 1;
@@ -370,14 +385,17 @@ void start_level( int level ){
 					bullet_throttle = BULLET_DELAY;
 				}
 			}
-			MoveSprite(0, ship.x,ship.y, 3,2);
+			sprites[0].x = ship.x;      sprites[0].y = ship.y;
+			sprites[1].x = ship.x;      sprites[1].y = ship.y + 8;
+			sprites[2].x = ship.x + 8;  sprites[2].y = ship.y + 8;
+			sprites[3].x = ship.x + 16; sprites[3].y = ship.y + 8;
 		}
 		else if( ship.status == STATUS_EXPLODING ) {
 			if( ship.anim_step == 16 )
-				MapSprite( 0, explosion_map_3x2[0] );
+				MapSprite( 0, explosion_map_2x2[0] );
 
 			if( ship.anim_step == 8 )
-				MapSprite( 0, explosion_map_3x2[1] );
+				MapSprite( 0, explosion_map_2x2[1] );
 			
 			if( ship.anim_step == 0 ) {
 				for( i=0 ; i<SPRITE_BULLET1 ; i++ ) {
@@ -401,6 +419,8 @@ void start_level( int level ){
 						if( ship.status != STATUS_EXPLODING ) {
 							ship.status = STATUS_EXPLODING;
 							ship.anim_step = 16;
+							sprites[3].x -= 8;
+							sprites[3].y -= 8;
 						}
 					}
 					else if( i < SPRITE_BULLET1+MAX_BULLETS ) {
