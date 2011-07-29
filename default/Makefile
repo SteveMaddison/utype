@@ -58,6 +58,7 @@ INCLUDES = -I"$(KERNEL_DIR)"
 ## Included data files
 DATA_FILES =  ../data/scoreboard.inc ../data/sprites.inc
 DATA_FILES += ../data/tiles1.inc ../data/level1.inc
+DATA_FILES += ../data/tiles2.inc ../data/level2.inc
 
 ## Build
 all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze
@@ -71,8 +72,14 @@ all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze
 ../data/tiles1.inc: ../data/tiles1.png ../data/tiles1.gconvert.xml
 	gconvert ../data/tiles1.gconvert.xml
 
-../data/level1.inc: ../data/level1.txt levelconv.pl
-	./levelconv.pl $< > $@
+../data/tiles2.inc: ../data/tiles2.png ../data/tiles2.gconvert.xml
+	gconvert ../data/tiles2.gconvert.xml
+
+../data/level1.inc: ../data/level1.map tiledconv.pl
+	./tiledconv.pl $< > $@
+
+../data/level2.inc: ../data/level2.map tiledconv.pl
+	./tiledconv.pl $< > $@
 
 ## Compile Kernel files
 uzeboxVideoEngineCore.o: $(KERNEL_DIR)/uzeboxVideoEngineCore.s

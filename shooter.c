@@ -28,9 +28,11 @@ void SetScrolling(char sx,char sy);
 #define FPS          60
 
 #include "data/level1.inc"
+#include "data/level2.inc"
 #include "data/scoreboard.inc"
 #include "data/sprites.inc"
 #include "data/tiles1.inc"
+#include "data/tiles2.inc"
 
 const char ship_map[] PROGMEM ={
 3,2
