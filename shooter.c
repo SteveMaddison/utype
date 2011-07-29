@@ -57,16 +57,18 @@ const char explosion_map_2x2[EXPLOSION_FRAMES][8] PROGMEM = {
 #define COL_TOP     0x0c
 #define COL_BOTTOM  0x03
 const unsigned char sprite_col_map[] = {
-	0x00, 0x02, 0x0c, 0x02, 0x0f, 0x0f, 0x00, 0x00,
-	0x00, 0x0f, 0x0e, 0x00, 0x0f, 0x0f, 0x00, 0x00,
+	0x00, 0x02, 0x0c, 0x0f, 0x0f, 0x0f, 0x00, 0x00,
+	0x00, 0x0f, 0x0c, 0x00, 0x0f, 0x0f, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f,
+	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f
 };
 const unsigned char bg_col_map[] = {
 	0x00, 0x00, 0x00, 0x00, 0x0f, 0x0f, 0x03, 0x03,
 	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0c, 0x0c,
-	0x01, 0x0f, 0x0f, 0x0e, 0x07, 0x0f, 0x0b, 0x00,
-	0x07, 0x0f, 0x0f, 0x08, 0x0d, 0x0f, 0x0e, 0x00,
+	0x01, 0x0f, 0x0f, 0x0e, 0x07, 0x0f, 0x0b, 0x0f,
+	0x07, 0x0f, 0x0f, 0x08, 0x0d, 0x0f, 0x0e, 0x0f,
 	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f,
 	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f,
 	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f,
@@ -102,18 +104,30 @@ typedef struct {
 } ship_t;
 #define SPRITE_SHIP      0
 
+typedef enum {
+	BULLET_FREE = 0,
+	BULLET_CHARGING,
+	BULLET_SMALL,
+	BULLET_MEDIUM,
+	BULLET_LARGE
+} bullet_status_t;
+
 typedef struct {
 	int x;
 	int y;
+	bullet_status_t status;
 } bullet_t;
-#define SPRITE_BULLET1  6
-#define MAX_BULLETS     3
+#define SPRITE_BULLET1  4
+#define MAX_BULLETS     6
 #define BULLET_SPEED    4
-#define BULLET_DELAY   20
+#define BULLET_DELAY    ((SCREEN_TILES_H*8)/BULLET_SPEED/(MAX_BULLETS-1))
+#define BULLET_CHARGE_MAX (FPS)
 
 // Globals
+unsigned int frame = 0;
 ship_t ship;
 bullet_t bullet[MAX_BULLETS];
+char bullet_charge = 0;
 unsigned char *level_pos = NULL;
 unsigned char *level_prev_column = NULL;
 char level_column = 0;
@@ -238,13 +252,40 @@ void map_sprite_irreg( int sprite, const char *map ) {
 	}
 }
 
-int new_bullet( char tile ) {
+void set_bullet( int b, bullet_status_t status ) {
+	bullet[b].status = status;
+	
+	switch( status ) {
+		case BULLET_FREE:
+			sprites[SPRITE_BULLET1+b].tileIndex = 0;
+			break;
+		case BULLET_CHARGING:
+			sprites[SPRITE_BULLET1+b].tileIndex = 3;
+			break;
+		case BULLET_SMALL:
+			sprites[SPRITE_BULLET1+b].tileIndex = 2;
+			bullet[b].y++; // offset for small bullet sprite
+			bullet[b].y &= 0xfffe;
+			break;
+		case BULLET_MEDIUM:
+			sprites[SPRITE_BULLET1+b].tileIndex = 4;
+			bullet[b].y &= 0xfffe;
+			break;
+		case BULLET_LARGE:
+			sprites[SPRITE_BULLET1+b].tileIndex = 5;
+			break;
+		default:
+			break;
+	}
+}
+
+int new_bullet( void ) {
 	int i;
 	for( i=0 ; i < MAX_BULLETS ; i++ ) {
-		if( sprites[SPRITE_BULLET1+i].tileIndex == 0 ) {
-			sprites[SPRITE_BULLET1+i].tileIndex = tile;
-			bullet[i].x = ship.x + 24;
-			bullet[i].y = ship.y + 10;
+		if( bullet[i].status == BULLET_FREE ) {
+			set_bullet( i, BULLET_CHARGING );
+			bullet[i].x = 0;
+			bullet[i].y = 0;
 			return i;
 		}
 	}
@@ -252,13 +293,47 @@ int new_bullet( char tile ) {
 }
 
 void update_bullet( int b ) {
-	if( sprites[SPRITE_BULLET1+b].tileIndex ) {
-		bullet[b].x += BULLET_SPEED;
+	if( bullet[b].status != BULLET_FREE ) {
 		if( bullet[b].x >= SCREEN_TILES_H*8 ) {
-			sprites[SPRITE_BULLET1+b].tileIndex = 0;
+			set_bullet(b, BULLET_FREE);
 		}
 		else {
-			MoveSprite(SPRITE_BULLET1+b, bullet[b].x,bullet[b].y, 1,1);
+			switch( bullet[b].status ) {
+				case BULLET_CHARGING:
+					bullet[b].x = ship.x + 21;
+					bullet[b].y = ship.y + 9;
+					if( frame % 4 == 0 ) {
+						sprites[SPRITE_BULLET1+b].tileIndex++;
+						if( sprites[SPRITE_BULLET1+b].tileIndex > 5 ) {
+							sprites[SPRITE_BULLET1+b].tileIndex = 3;
+						}
+					}
+					MoveSprite(SPRITE_BULLET1+b, bullet[b].x,bullet[b].y, 1,1);
+					break;
+				case BULLET_SMALL:
+				case BULLET_MEDIUM:
+					bullet[b].x += BULLET_SPEED;
+					MoveSprite(SPRITE_BULLET1+b, bullet[b].x,bullet[b].y, 1,1);
+					break;
+				case BULLET_LARGE:
+					bullet[b].x += BULLET_SPEED;
+					MoveSprite(SPRITE_BULLET1+b, bullet[b].x,bullet[b].y, 1,1);
+					break;
+				default:
+					break;
+			}
+		}
+	}
+}
+
+void update_charge( void ) {
+	int i;
+	for( i=0 ; i<10 ; i++ ) {
+		if( bullet_charge > (BULLET_CHARGE_MAX/10)*i ) {
+			vram[(VRAM_TILES_H*VRAM_TILES_V)+i+9] = RAM_TILES_COUNT+31;
+		}
+		else {
+			vram[(VRAM_TILES_H*VRAM_TILES_V)+i+9] = RAM_TILES_COUNT;
 		}
 	}
 }
@@ -302,20 +377,20 @@ int col_check( int sprite ) {
 			unsigned int s = smap << 12;
 			if( offset_x != 0 ) {
 				// OR to the right
-				s |= ((s & 0x5000) >> 3);
-				s |= ((s & 0xa000) >> 1);
+				s |= ((s & 0xa000) >> 1)
+  				  |  ((s & 0x5000) >> 3);
 				if( offset_x > 3 ) {
-					// Shift to two bytes right
-					s = ((s & 0x0a00) >> 1)
+					// Shift right
+					s = ((s & 0xa000) >> 1)
 					  | ((s & 0x5000) >> 3)
-					  | ((s & 0xa000) >> 1);
+					  | ((s & 0x0a00) >> 1);
 				}
 			}
 
 			if( offset_y > 0 ) {
 				// OR downwards
-				s |= ((s & 0x3300) >> 6);
-				s |= ((s & 0xcc00) >> 2);
+				s |= ((s & 0xcc00) >> 2)
+				  |  ((s & 0x3300) >> 6);
 				if( offset_y > 3 ) {
 					// Shift downwards
 					s = ((s & 0xcc00) >> 2)
@@ -334,15 +409,15 @@ int col_check( int sprite ) {
 
 void start_level( int level ){
 	int i;
-	unsigned int frame = 0;
-	int bullet_throttle = 0;
 	bool done = false;
+	int current_bullet = -1;
 
 	FadeOut(FADE_SPEED,true);
 	clear_sprites();
 	SetTileTable(tiles1);
 	SetSpriteVisibility(true);
 	SetScrolling(0,0);
+	Screen.overlayHeight=OVERLAY_LINES;
 	level_load( (unsigned char*)level1_map );
 
 	sprites[0].tileIndex = 1;
@@ -354,6 +429,14 @@ void start_level( int level ){
 	ship.y = SHIP_MAX_Y/2;
 	ship.speed = 1;
 	ship.status = STATUS_OK;
+	
+	bullet_charge = 0;
+	frame = 0;
+
+	for( i=0 ; i<VRAM_TILES_H ; i++ ) {
+		vram[(VRAM_TILES_H*VRAM_TILES_V)+i] = RAM_TILES_COUNT;
+		vram[(VRAM_TILES_H*(VRAM_TILES_V+1))+i] = RAM_TILES_COUNT;
+	}
 
 	FadeIn(FADE_SPEED,false);
 	while( !done ) {
@@ -380,9 +463,31 @@ void start_level( int level ){
 				if( ship.y > SHIP_MAX_Y ) ship.y = SHIP_MAX_Y;
 			}
 			if( buttons & BTN_B ) {
-				if( bullet_throttle == 0 ) {
-					new_bullet(2);
-					bullet_throttle = BULLET_DELAY;
+				if( current_bullet == -1 ) {
+					current_bullet = new_bullet();
+				}
+				if( current_bullet != -1 ) {
+					bullet_charge++;
+					if( bullet_charge > BULLET_CHARGE_MAX ) {
+						bullet_charge = BULLET_CHARGE_MAX;
+					}
+					update_charge();
+				}
+			}
+			else {
+				if( current_bullet != -1 ) {
+					if( bullet_charge == BULLET_CHARGE_MAX ) {
+						set_bullet( current_bullet, BULLET_LARGE );
+					}
+					else if( bullet_charge >= BULLET_CHARGE_MAX/2 ) {
+						set_bullet( current_bullet, BULLET_MEDIUM );
+					}
+					else {
+						set_bullet( current_bullet, BULLET_SMALL );
+					}
+					bullet_charge = 0;
+					update_charge();
+					current_bullet = -1;
 				}
 			}
 			sprites[0].x = ship.x;      sprites[0].y = ship.y;
@@ -425,14 +530,13 @@ void start_level( int level ){
 					}
 					else if( i < SPRITE_BULLET1+MAX_BULLETS ) {
 						// Bullet hit something...
-						sprites[i].tileIndex = 0;
+						set_bullet( i-SPRITE_BULLET1, BULLET_FREE );
 					}
 				}
 			}
 		}
 
 		frame++;
-		if( bullet_throttle ) bullet_throttle--;
 	}
 	WaitVsync(60);
 	FadeOut(FADE_SPEED,true);
@@ -520,14 +624,14 @@ int show_title() {
 	FadeOut(FADE_SPEED,true);
 	ClearVram();
 	draw_starfield();
-	text_write((SCREEN_TILES_H-20)/2,24,"c2011 STEVE MADDISON");	
+	text_write((SCREEN_TILES_H-20)/2,23,"c2011 STEVE MADDISON");	
 	FadeIn(FADE_SPEED,false);
 
 	for( i=0 ; i<TITLE_SECONDS ; i++ ) {
-		text_write((SCREEN_TILES_H-10)/2,20,"PUSH START");
+		text_write((SCREEN_TILES_H-10)/2,19,"PUSH START");
 		if( wait_start(FPS/2) ) return 1;
 
-		text_write((SCREEN_TILES_H-10)/2,20,"          ");
+		text_write((SCREEN_TILES_H-10)/2,19,"          ");
 		if( wait_start(FPS/2) ) return 1;
 	}
 	return 0;
@@ -571,6 +675,7 @@ void show_intro() {
 int main(){
 	SetSpritesTileTable(sprite_tiles);
 	while(1) {
+		Screen.overlayHeight=0;
 		SetScrolling(0,0);
 		SetTileTable(scoreboard_tiles);
 		if( show_title() || show_attract() || show_hi_scores() ) {
