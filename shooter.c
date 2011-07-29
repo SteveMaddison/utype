@@ -120,10 +120,10 @@ char level_column = 0;
 char level_col_repeat = 0;
 char scroll_speed = 0;
 
-#define HIGH_SCORES 9
+#define HIGH_SCORES 8
 #define MAX_SCORE 999999999
-char hi_name[HIGH_SCORES][4] = { "SAM\0","TOM\0","UZE\0","TUX\0","JIM\0","B*A\0","ABC\0","XYZ\0", "123\0" };
-long hi_score[HIGH_SCORES]   = { 1000000, 900000, 800000, 700000, 600000, 500000, 400000, 300000, 200000 };
+char hi_name[HIGH_SCORES][4] = { "SAM\0","TOM\0","UZE\0","TUX\0","JIM\0","B*A\0","ABC\0","XYZ\0" };
+long hi_score[HIGH_SCORES]   = { 1000000, 900000, 800000, 700000, 600000, 500000, 400000, 300000 };
 
 void level_draw_column( void ) {
 	int y = 0;
@@ -573,11 +573,11 @@ int main(){
 	while(1) {
 		SetScrolling(0,0);
 		SetTileTable(scoreboard_tiles);
-		//if( show_title() || show_attract() || show_hi_scores() ) {
+		if( show_title() || show_attract() || show_hi_scores() ) {
 			// Start was pressed...
 			show_intro();
 			start_level(1);
-		//}
+		}
 	}
 }
 
