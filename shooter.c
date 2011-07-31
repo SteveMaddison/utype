@@ -27,12 +27,16 @@ void SetScrolling(char sx,char sy);
 #define LEVEL_TILES_Y  24
 #define FPS            60
 
+#include "data/tiles1.inc"
+#include "data/overlay.inc"
+#include "data/tiles2.inc"
+
+#include "data/sprites.inc"
+
 #include "data/level1.inc"
 #include "data/level2.inc"
-#include "data/scoreboard.inc"
-#include "data/sprites.inc"
-#include "data/tiles1.inc"
-#include "data/tiles2.inc"
+
+#define OVERLAY_OFFSET(x) ((x<3) ? 168 : 0)
 
 const char ship_map[] PROGMEM ={
 	3,2,	0x1,0x0,0x0,
@@ -128,6 +132,8 @@ unsigned int frame = 0;
 ship_t ship;
 bullet_t bullet[MAX_BULLETS];
 char bullet_charge = 0;
+char level = 0;
+long score = 0;
 unsigned char *level_pos = NULL;
 unsigned char *level_prev_column = NULL;
 char level_column = 0;
@@ -326,16 +332,103 @@ void update_bullet( int b ) {
 	}
 }
 
-void update_charge( void ) {
-	int i;
-	for( i=0 ; i<10 ; i++ ) {
-		if( bullet_charge > (BULLET_CHARGE_MAX/10)*i ) {
-			vram[(VRAM_TILES_H*VRAM_TILES_V)+i+9] = RAM_TILES_COUNT+31;
+void text_write( char x, char y, const char *text, bool overlay ) {
+	char *p = (char*)text;
+	unsigned char t = 0;
+
+	while( *p ) {
+		if ( *p >= 'A' && *p <= 'Z' ) {
+			t = *p - 'A' + 1;
+		}
+		else if( *p >= '0' && *p <= '9' ) {
+			t = *p - '0' + 32;
 		}
 		else {
-			vram[(VRAM_TILES_H*VRAM_TILES_V)+i+9] = RAM_TILES_COUNT;
+			switch( *p ) {
+				case '.': t=27; break;
+				case '!': t=28; break;
+				case '/': t=29; break;
+				case '?': t=30; break;
+				case '*': t=31; break;
+				case 'c': t=44; break;
+				default: t = 0; // blank
+			}
 		}
+		SetTile(x++, y, t + OVERLAY_OFFSET(level) + (overlay ? RAM_TILES_COUNT : 0 ) );
+		p++;
 	}
+}
+
+void text_write_number( char x, char y, unsigned long num, align_t align, bool overlay ) {
+	char digits[15];
+	int pos = 0;
+	
+	digits[pos] = 0;
+
+	while(num > 0) {
+		digits[pos] = num%10;
+		num -= digits[pos];
+		num /= 10;
+		pos++;
+	}
+
+	if( align == ALIGN_RIGHT ) {
+		x-=(pos-1);
+	}
+
+	if(pos == 0) {
+		x--; pos++;
+	}
+	while(--pos >= 0) {
+		SetTile(x++,y,digits[pos] + 32 + OVERLAY_OFFSET(level) + (overlay ? RAM_TILES_COUNT : 0 ) );
+	}
+}
+
+void update_score( void ) {
+	text_write_number( 1, VRAM_TILES_H+2, score, ALIGN_LEFT, true );
+}
+
+void update_charge( void ) {
+	int i;
+	char offset = 0;
+
+	for( i=0 ; i<10 ; i++ ) {
+		if( bullet_charge > (BULLET_CHARGE_MAX/10)*i )
+			offset = 52;
+		else
+			offset = 49;
+		
+		if( i == 0 )
+			offset--;
+		else if( i == 9 )
+			offset++;		
+		
+		vram[(VRAM_TILES_H*(VRAM_TILES_V+1))+i+9] = OVERLAY_OFFSET(level) + RAM_TILES_COUNT + offset;
+	}
+}
+
+void init_overlay() {
+	int i;
+
+	// Clear overlay
+	for( i=0 ; i<VRAM_TILES_H ; i++ ) {
+		vram[(VRAM_TILES_H*VRAM_TILES_V)+i] = RAM_TILES_COUNT;
+		vram[(VRAM_TILES_H*(VRAM_TILES_V+1))+i] = RAM_TILES_COUNT;
+	}
+
+	// "Score" text
+	vram[(VRAM_TILES_H*VRAM_TILES_V)+1] = OVERLAY_OFFSET(level) + RAM_TILES_COUNT + 54;
+	vram[(VRAM_TILES_H*VRAM_TILES_V)+2] = OVERLAY_OFFSET(level) + RAM_TILES_COUNT + 55;
+	vram[(VRAM_TILES_H*VRAM_TILES_V)+3] = OVERLAY_OFFSET(level) + RAM_TILES_COUNT + 56;
+
+	// "Charge" text
+	vram[(VRAM_TILES_H*VRAM_TILES_V)+12] = OVERLAY_OFFSET(level) + RAM_TILES_COUNT + 57;
+	vram[(VRAM_TILES_H*VRAM_TILES_V)+13] = OVERLAY_OFFSET(level) + RAM_TILES_COUNT + 58;
+	vram[(VRAM_TILES_H*VRAM_TILES_V)+14] = OVERLAY_OFFSET(level) + RAM_TILES_COUNT + 59;
+	vram[(VRAM_TILES_H*VRAM_TILES_V)+15] = OVERLAY_OFFSET(level) + RAM_TILES_COUNT + 60;
+	
+	update_score();
+	update_charge();
 }
 
 int col_check( int sprite ) {
@@ -430,13 +523,11 @@ void start_level( int level ){
 	ship.speed = 1;
 	ship.status = STATUS_OK;
 	
+	score = 0;
 	bullet_charge = 0;
 	frame = 0;
 
-	for( i=0 ; i<VRAM_TILES_H ; i++ ) {
-		vram[(VRAM_TILES_H*VRAM_TILES_V)+i] = RAM_TILES_COUNT;
-		vram[(VRAM_TILES_H*(VRAM_TILES_V+1))+i] = RAM_TILES_COUNT;
-	}
+	init_overlay();
 
 	FadeIn(FADE_SPEED,false);
 	while( !done ) {
@@ -544,56 +635,6 @@ void start_level( int level ){
 	ClearVram();
 }
 
-void text_write( char x, char y, const char *text ) {
-	char *p = (char*)text;
-	char t = 0;
-
-	while( *p ) {
-		if ( *p >= 'A' && *p <= 'Z' ) {
-			t = *p - 'A' + 16;
-		}
-		else if( *p >= '0' && *p <= '9' ) {
-			t = *p - '0' + 48;
-		}
-		else {
-			switch( *p ) {
-				case '.': t=42; break;
-				case '-': t=43; break;
-				case '!': t=44; break;
-				case '/': t=45; break;
-				case '?': t=46; break;
-				case '*': t=47; break;
-				case 'c': t=63; break;
-				default: t = 0; // blank
-			}
-		}
-		SetTile(x++,y,t);
-		p++;
-	}
-}
-
-void text_write_number( char x, char y, unsigned long num, align_t align ) {
-	char digits[15];
-	int pos = 0;
-	
-	digits[pos] = 0;
-
-	while(num > 0) {
-		digits[pos] = num%10;
-		num -= digits[pos];
-		num /= 10;
-		pos++;
-	}
-
-	if( align == ALIGN_RIGHT ) {
-		x-=(pos-1);
-	}
-
-	while(--pos >= 0) {
-		SetTile(x++,y,digits[pos]+48);
-	}
-}
-
 void draw_starfield( void ) {
 	int i;
 
@@ -602,7 +643,7 @@ void draw_starfield( void ) {
 		SetTile(
 			random()%SCREEN_TILES_H,
 			random()%SCREEN_TILES_V,
-			(random()%3) + 9);
+			(random()%3) + OVERLAY_OFFSET(level) + 45);
 	}
 }
 
@@ -624,21 +665,21 @@ int show_title() {
 	FadeOut(FADE_SPEED,true);
 	ClearVram();
 	draw_starfield();
-	text_write((SCREEN_TILES_H-20)/2,23,"c2011 STEVE MADDISON");	
+	text_write((SCREEN_TILES_H-20)/2,23,"c2011 STEVE MADDISON",false);	
 	FadeIn(FADE_SPEED,false);
 
 	for( i=0 ; i<TITLE_SECONDS ; i++ ) {
-		text_write((SCREEN_TILES_H-10)/2,19,"PUSH START");
+		text_write((SCREEN_TILES_H-10)/2,19,"PUSH START",false);
 		if( wait_start(FPS/2) ) return 1;
 
-		text_write((SCREEN_TILES_H-10)/2,19,"          ");
+		text_write((SCREEN_TILES_H-10)/2,19,"          ",false);
 		if( wait_start(FPS/2) ) return 1;
 	}
 	return 0;
 }
 
 int show_hi_scores() {
-#define HI_SCORE_TOP 9
+#define HI_SCORE_TOP 10
 	int i;
 
 	FadeOut(FADE_SPEED,true);
@@ -646,16 +687,16 @@ int show_hi_scores() {
 	draw_starfield();
 
 	for( i=0 ; i<SCREEN_TILES_H ; i++ ) {
-		SetTile(i,3,1);
-		SetTile(i,22,1);
+		SetTile(i,3,OVERLAY_OFFSET(level)+52);
+		SetTile(i,22,OVERLAY_OFFSET(level)+52);
 	}
-	text_write((SCREEN_TILES_H-10)/2,HI_SCORE_TOP-4,"HI  SCORES");
+	text_write((SCREEN_TILES_H-10)/2,HI_SCORE_TOP-4,"HI  SCORES",false);
 
 	for( i=0 ; i<HIGH_SCORES ; i++ ) {
-		text_write_number(6,HI_SCORE_TOP+i,i+1,ALIGN_RIGHT);
-		SetTile(7,HI_SCORE_TOP+i, i>2 ? 15 : 12+i );
-		text_write(9,HI_SCORE_TOP+i,hi_name[i]);
-		text_write_number(21,HI_SCORE_TOP+i,hi_score[i],ALIGN_RIGHT);
+		text_write_number(6,HI_SCORE_TOP+i,i+1,ALIGN_RIGHT,false);
+		text_write(7,HI_SCORE_TOP+i,".",false);
+		text_write(9,HI_SCORE_TOP+i,hi_name[i],false);
+		text_write_number(21,HI_SCORE_TOP+i,hi_score[i],ALIGN_RIGHT,false);
 	}
 
 	FadeIn(FADE_SPEED,false);
@@ -677,7 +718,7 @@ int main(){
 	while(1) {
 		Screen.overlayHeight=0;
 		SetScrolling(0,0);
-		SetTileTable(scoreboard_tiles);
+		SetTileTable(tiles1);
 		if( show_title() || show_attract() || show_hi_scores() ) {
 			// Start was pressed...
 			show_intro();

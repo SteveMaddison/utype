@@ -57,15 +57,15 @@ LINKONLYOBJECTS =
 INCLUDES = -I"$(KERNEL_DIR)" 
 
 ## Included data files
-DATA_FILES =  ../data/scoreboard.inc ../data/sprites.inc
+DATA_FILES =  ../data/overlay.inc ../data/sprites.inc
 DATA_FILES += ../data/tiles1.inc ../data/level1.inc
 DATA_FILES += ../data/tiles2.inc ../data/level2.inc
 
 ## Build
 all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze
 
-../data/scoreboard.inc: ../data/scoreboard.png ../data/scoreboard.gconvert.xml
-	gconvert ../data/scoreboard.gconvert.xml
+../data/overlay.inc: ../data/overlay.png ../data/overlay.gconvert.xml
+	gconvert ../data/overlay.gconvert.xml
 
 ../data/sprites.inc: ../data/sprites.png ../data/sprites.gconvert.xml
 	gconvert ../data/sprites.gconvert.xml
@@ -76,10 +76,10 @@ all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze
 ../data/tiles2.inc: ../data/tiles2.png ../data/tiles2.gconvert.xml
 	gconvert ../data/tiles2.gconvert.xml
 
-../data/level1.inc: ../data/level1.map tiledconv.pl
+../data/level1.inc: ../data/level1.tmx tiledconv.pl
 	./tiledconv.pl $< > $@
 
-../data/level2.inc: ../data/level2.map tiledconv.pl
+../data/level2.inc: ../data/level2.tmx tiledconv.pl
 	./tiledconv.pl $< > $@
 
 ## Compile Kernel files

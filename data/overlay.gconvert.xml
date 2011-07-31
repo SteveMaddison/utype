@@ -1,0 +1,7 @@
+<?xml version="1.0" ?>
+<gfx-xform version="1">
+	<input file="../data/overlay.png" type="png" tile-width="8" tile-height="8"/>
+	<output file="../data/overlay.inc">
+		<tiles var-name="overlay_tiles"/>
+	</output>
+</gfx-xform>
