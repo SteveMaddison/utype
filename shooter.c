@@ -45,11 +45,9 @@ const char explosion_map_2x2[EXPLOSION_FRAMES][6] PROGMEM = {
 };
 
 #define WHOOSH_FRAMES 2
-const char whoosh_map[WHOOSH_FRAMES][10] PROGMEM = {
-	{ 4,2,	32, 33, 34, 35,
-			40, 41, 42, 43 },
-	{ 4,2,	36, 37, 38, 39,
-			44, 45, 46, 43 }
+const char whoosh_map[] PROGMEM = {
+	4,2,	32, 33, 34, 35,
+			40, 41, 42, 43
 };
 
 // Collision detection bitmaps for tiles.
@@ -276,6 +274,7 @@ void set_bullet( int b, bullet_status_t status ) {
 			break;
 		case BULLET_LARGE:
 			bullet[b].y -= 4;
+			MapSprite(SPRITE_WHOOSH, whoosh_map);
 			sprites[SPRITE_BULLET1+b].tileIndex = 0;
 			break;
 		default:
@@ -323,13 +322,14 @@ void update_bullet( int b ) {
 					MoveSprite(SPRITE_BULLET1+b, bullet[b].x,bullet[b].y, 1,1);
 					break;
 				case BULLET_LARGE:
+					if( bullet[b].x >= (SCREEN_TILES_H*8)-16 ) {
+						// Prevent wrapping
+						sprites[SPRITE_WHOOSH+2].tileIndex = 0;
+						sprites[SPRITE_WHOOSH+3].tileIndex = 0;
+						sprites[SPRITE_WHOOSH+6].tileIndex = 0;
+						sprites[SPRITE_WHOOSH+7].tileIndex = 0;
+					}
 					bullet[b].x += BULLET_SPEED;
-					if( frame % 4 == 0 ) {
-						MapSprite(SPRITE_WHOOSH, whoosh_map[0]);
-					}
-					else if( frame % 4 == 2 ) {
-						MapSprite(SPRITE_WHOOSH, whoosh_map[1]);
-					}
 					MoveSprite(SPRITE_WHOOSH, bullet[b].x,bullet[b].y, 4,2);
 					break;
 				default:
