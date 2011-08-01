@@ -50,6 +50,24 @@ const char whoosh_map[] PROGMEM = {
 			40, 41, 42, 43
 };
 
+char mine_map[2][6] PROGMEM = {
+	{ 2,2,	30,31,
+			46,47 },
+	{ 2,2,	30,31,
+			62,47 }
+};
+
+char spinner_map[4][8] PROGMEM = {
+	{ 3,2,	68,69,70,
+			84,85,86 },
+	{ 3,2,	71,72,73,
+			87,88,89 },
+	{ 3,2,	74,75,76,
+			90,91,92 },
+	{ 3,2,	77,78,79,
+			93,94,95 }
+};
+
 // Collision detection bitmaps for tiles.
 // For each tile, determine which quadrants are solid.
 //  +---+---+
@@ -61,7 +79,7 @@ const char whoosh_map[] PROGMEM = {
 #define COL_RIGHT   0x05
 #define COL_TOP     0x0c
 #define COL_BOTTOM  0x03
-const unsigned char sprite_col_map[] = {
+const unsigned char sprite_col_map[] PROGMEM = {
 	0x00, 0x02, 0x0c, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f,
 	0x00, 0x0f, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x02, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -69,7 +87,7 @@ const unsigned char sprite_col_map[] = {
 	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f,
 	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f
 };
-const unsigned char bg_col_map[] = {
+const unsigned char bg_col_map[] PROGMEM = {
 	0x00, 0x00, 0x00, 0x00, 0x0f, 0x0f, 0x03, 0x03,
 	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0c, 0x0c,
 	0x01, 0x0f, 0x0f, 0x0e, 0x07, 0x0f, 0x0b, 0x0f,
@@ -138,26 +156,31 @@ typedef enum {
 	ENEMY_COUNT
 } enemy_id_t;
 
-struct enemy {
-	struct enemy *next;
-	int x;
-	int y;
-	enemy_id_t id;
-	char bg[6];
-};
-
 typedef struct {
-	int x;
-	int y;
+	char x;
+	char y;
 	enemy_id_t id;
 } enemy_def_t;
 
+typedef struct {
+	char x;
+	char y;
+	enemy_id_t id;
+	char hp;
+} enemy_t;
+
 enemy_def_t enemies1[] PROGMEM = {
 	{ 20, 4, ENEMY_MINE },
-	{ 31, 12, ENEMY_SPINNER },
-	{ 33, 10, ENEMY_SPINNER },
-	{ 35, 8, ENEMY_SPINNER },
+	{ 36, 12, ENEMY_SPINNER },
+	{ 38, 10, ENEMY_SPINNER },
+	{ 40, 8, ENEMY_SPINNER },
 	{ 0, 0, ENEMY_NONE }
+};
+
+char enemy_hp[ENEMY_COUNT] = {
+	0,
+	5,	// Mine
+	1	// Spinner
 };
 
 // Globals
@@ -174,42 +197,27 @@ char level_vram_column = 0;
 char level_col_repeat = 0;
 int level_column = 0;
 char scroll_speed = 0;
-enemy_def_t *enemy_pos = enemies1;
-struct enemy *enemy_start = NULL;
+#define MAX_ENEMIES 9
+enemy_def_t *enemy_pos = NULL;
+enemy_t enemies[MAX_ENEMIES];
 
 #define HIGH_SCORES 8
 #define MAX_SCORE 999999999
 char hi_name[HIGH_SCORES][4] = { "SAM\0","TOM\0","UZE\0","TUX\0","JIM\0","B*A\0","ABC\0","XYZ\0" };
 long hi_score[HIGH_SCORES]   = { 1000000, 900000, 800000, 700000, 600000, 500000, 400000, 300000 };
 
-struct enemy *add_enemy( enemy_id_t id, int x, int y ) {
-	struct enemy *new = malloc(sizeof(struct enemy));
-	if( new != NULL ) {
-		score+=100;
-		new->id = id;
-		new->x = x;
-		new->y = y;
-		new->next = enemy_start;
-		enemy_start = new;
-	}
-	return new;
-}
-
-void draw_enemy( int x, int y, enemy_id_t id ) {
-	struct enemy *e = add_enemy( id, x, y );
-	if( e != NULL ) {
-		switch( id ) {
-			case ENEMY_MINE:
-				SetTile(x,y,   30);
-				SetTile(x,y+1, 46);
-				break;
-			case ENEMY_SPINNER:
-				// Drawn during update
-				break;
-			default:
-				break;
+int add_enemy( enemy_id_t id, int x, int y ) {
+	int i;
+	for( i=0 ; i < MAX_ENEMIES ; i++ ) {
+		if( enemies[i].id == ENEMY_NONE ) {
+			enemies[i].id = id;
+			enemies[i].x = x;
+			enemies[i].y = y;
+			enemies[i].hp = enemy_hp[id];
+			return i;
 		}
 	}
+	return -1;
 }
 
 void level_draw_column( void ) {
@@ -259,8 +267,8 @@ void level_draw_column( void ) {
 	}
 
 	// Any new enemies?
-	while( pgm_read_word( &enemy_pos->x ) == level_column ) {
-		draw_enemy( level_vram_column, pgm_read_word( &enemy_pos->y ), pgm_read_word( &enemy_pos->id ) );
+	while( pgm_read_byte( &enemy_pos->x ) == level_column-4 ) {
+		add_enemy( pgm_read_byte( &enemy_pos->id ), level_vram_column-4, pgm_read_byte( &enemy_pos->y ) );
 		enemy_pos++;
 	}
 
@@ -410,80 +418,99 @@ void update_bullet( int b ) {
 }
 
 void clear_enemies() {
-	struct enemy *e = enemy_start;
-	struct enemy *tmp = enemy_start;
+	int i;
 	
-	while( e ) {
-		tmp = e;
-		e = e->next;
-		free( tmp );
+	for( i=0 ; i<MAX_ENEMIES ; i++ ) {
+		enemies[i].id = ENEMY_NONE;
+		enemies[i].x = 0;
+		enemies[i].y = 0;
 	}
-	enemy_start = NULL;
+}
+
+void clear_tiles( int x, int y, int width, int height ) {
+	int xx,yy;
+	
+	for( yy=0 ; yy<height ; yy++ ) {
+		for( xx=0 ; xx<width ; xx++ ) {
+			SetTile((x+xx)%VRAM_TILES_H,y+yy,0);
+		}	
+	}
+}
+
+void draw_enemy( char x, char y, const char *map ) {
+// This is basically DrawMap2() with wrapping.
+	unsigned char i;
+	unsigned char mapWidth=pgm_read_byte(&(map[0]));
+	unsigned char mapHeight=pgm_read_byte(&(map[1]));
+
+	for(int dy=0;dy<mapHeight;dy++){
+		for(int dx=0;dx<mapWidth;dx++){			
+			i=pgm_read_byte(&(map[(dy*mapWidth)+dx+2]));
+			vram[((y+dy)*VRAM_TILES_H)+((x+dx)%VRAM_TILES_H)]=(i + RAM_TILES_COUNT) ;
+		}
+	}
 }
 
 void update_enemies() {
-	struct enemy *e = enemy_start;
+	int i;
 
-	while( e != NULL ) {
-		switch( e->id ) {
-			case ENEMY_MINE:
-				switch( frame % FPS ) {
-					case 0:
-						SetTile(e->x, e->y+1, 46 ); 
-						break;
-					case FPS/2:
-						SetTile(e->x, e->y+1, 62 ); 
-						break;
-					default:
-						break;
-				}
-				break;
-			case ENEMY_SPINNER:
-				switch( frame % 16 ) {
-					case 0:
-						e->x--;
-						SetTile( e->x,   e->y,   68 );
-						SetTile( e->x+1, e->y,   69 );
-						SetTile( e->x+2, e->y,   70 );
-						SetTile( e->x,   e->y+1, 84 );
-						SetTile( e->x+1, e->y+1, 85 );
-						SetTile( e->x+2, e->y+1, 86 );
-						// Erase trail
-						SetTile( e->x+3, e->y,   0 );
-						SetTile( e->x+3, e->y+1, 0 );
-						break;						
-					case 4:
-						SetTile( e->x,   e->y,   71 );
-						SetTile( e->x+1, e->y,   72 );
-						SetTile( e->x+2, e->y,   73 );
-						SetTile( e->x,   e->y+1, 87 );
-						SetTile( e->x+1, e->y+1, 88 );
-						SetTile( e->x+2, e->y+1, 89 );
-						break;
-					case 8:
-						SetTile( e->x,   e->y,   74 );
-						SetTile( e->x+1, e->y,   75 );
-						SetTile( e->x+2, e->y,   76 );
-						SetTile( e->x,   e->y+1, 90 );
-						SetTile( e->x+1, e->y+1, 91 );
-						SetTile( e->x+2, e->y+1, 92 );
-						break;
-					case 12:
-						SetTile( e->x,   e->y,   77 );
-						SetTile( e->x+1, e->y,   78 );
-						SetTile( e->x+2, e->y,   79 );
-						SetTile( e->x,   e->y+1, 93 );
-						SetTile( e->x+1, e->y+1, 94 );
-						SetTile( e->x+2, e->y+1, 95 );
-						break;
-					default:
-						break;
-				}
-				break;
-			default:
-				break;
+	for( i=0 ; i<MAX_ENEMIES ; i++ ) {
+		if( enemies[i].x == level_vram_column - 3 ) {
+			switch( enemies[i].id ) {
+				case ENEMY_MINE:
+					clear_tiles( enemies[i].x, enemies[i].y, 2, 2 );
+					break;
+				case ENEMY_SPINNER:
+					clear_tiles( enemies[i].x, enemies[i].y, 3, 2 );
+					break;
+				default:
+					break;
+			}	
+			enemies[i].id = 0;
 		}
-		e = e->next;
+		else {
+			switch( enemies[i].id ) {
+				case ENEMY_NONE:
+					break;
+				case ENEMY_MINE:
+					switch( frame % 60 ) {
+						case 0:
+							draw_enemy( enemies[i].x, enemies[i].y, mine_map[0] );
+							break;
+						case 30:
+							draw_enemy( enemies[i].x, enemies[i].y, mine_map[1] );
+							break;
+						default:
+							break;
+					}
+					break;
+				case ENEMY_SPINNER:
+					switch( frame % 16 ) {
+						case 0:
+							clear_tiles( enemies[i].x+2, enemies[i].y, 1, 2 );
+							enemies[i].x--;
+							if( enemies[i].x < 0 ) {
+								enemies[i].x = VRAM_TILES_H - 1;
+							} 
+							draw_enemy( enemies[i].x, enemies[i].y, spinner_map[0] );
+							break;
+						case 4:
+							draw_enemy( enemies[i].x, enemies[i].y, spinner_map[1] );
+							break;
+						case 8:
+							draw_enemy( enemies[i].x, enemies[i].y, spinner_map[2] );
+							break;
+						case 12:
+							draw_enemy( enemies[i].x, enemies[i].y, spinner_map[3] );
+							break;
+						default:
+							break;
+					}
+					break;
+				default:
+					break;
+			}
+		}
 	}
 }
 
@@ -606,7 +633,7 @@ void init_overlay() {
 }
 
 int col_check( int sprite ) {
-		unsigned char smap = sprite_col_map[sprites[sprite].tileIndex];
+		unsigned char smap = pgm_read_byte( &sprite_col_map[sprites[sprite].tileIndex] );
 
 		if( smap==0 ) {
 			// If all empty, no chance of collision.
@@ -629,11 +656,11 @@ int col_check( int sprite ) {
 			// | 7  6| 3  2|
 			// | 5  4| 1  0|
 			// +-----+-----+
-			unsigned int t = (bg_col_map[(*tile)-RAM_TILES_COUNT] << 12)
-						   | (bg_col_map[(*(tile+1))-RAM_TILES_COUNT] << 8);
+			unsigned int t = pgm_read_byte( &bg_col_map[(*tile    )-RAM_TILES_COUNT] ) << 12
+						   | pgm_read_byte( &bg_col_map[(*(tile+1))-RAM_TILES_COUNT] ) << 8;
 			if( tile_y < LEVEL_TILES_Y )
-				t |= (bg_col_map[(*(tile+VRAM_TILES_H))-RAM_TILES_COUNT] << 4)
-				  | (bg_col_map[(*(tile+VRAM_TILES_H+1))-RAM_TILES_COUNT]);
+				t |= pgm_read_byte( &bg_col_map[(*(tile+VRAM_TILES_H  ))-RAM_TILES_COUNT] ) << 4
+				  |  pgm_read_byte( &bg_col_map[(*(tile+VRAM_TILES_H+1))-RAM_TILES_COUNT] );
 			// No chance of collision if all tiles are empty.
 			if( t == 0 ) {
 				return 0;
