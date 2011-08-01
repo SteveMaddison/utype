@@ -36,17 +36,20 @@ void SetScrolling(char sx,char sy);
 #include "data/level1.inc"
 #include "data/level2.inc"
 
-#define OVERLAY_OFFSET(x) ((x<3) ? 168 : 0)
-
-const char ship_map[] PROGMEM ={
-	3,2,	0x1,0x0,0x0,
-			0x9,0xa,0xb
-};
+#define OVERLAY_OFFSET(x) ((x<3) ? (192-RAM_TILES_COUNT) : 0)
 
 #define EXPLOSION_FRAMES 2
-const char explosion_map_2x2[EXPLOSION_FRAMES][8] PROGMEM = {
-	{ 2,2,	16, 24, 25, 17 },
-	{ 2,2,	18, 26, 18, 19 }
+const char explosion_map_2x2[EXPLOSION_FRAMES][6] PROGMEM = {
+	{ 2,2,	20, 28, 29, 21 },
+	{ 2,2,	22, 30, 31, 23 }
+};
+
+#define WHOOSH_FRAMES 2
+const char whoosh_map[WHOOSH_FRAMES][10] PROGMEM = {
+	{ 4,2,	32, 33, 34, 35,
+			40, 41, 42, 43 },
+	{ 4,2,	36, 37, 38, 39,
+			44, 45, 46, 43 }
 };
 
 // Collision detection bitmaps for tiles.
@@ -61,10 +64,10 @@ const char explosion_map_2x2[EXPLOSION_FRAMES][8] PROGMEM = {
 #define COL_TOP     0x0c
 #define COL_BOTTOM  0x03
 const unsigned char sprite_col_map[] = {
-	0x00, 0x02, 0x0c, 0x0f, 0x0f, 0x0f, 0x00, 0x00,
-	0x00, 0x0f, 0x0c, 0x00, 0x0f, 0x0f, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x02, 0x0c, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f,
+	0x00, 0x0f, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x02, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x0f, 0x0c, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f,
 	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f
 };
@@ -126,6 +129,7 @@ typedef struct {
 #define BULLET_SPEED    4
 #define BULLET_DELAY    ((SCREEN_TILES_H*8)/BULLET_SPEED/(MAX_BULLETS-1))
 #define BULLET_CHARGE_MAX (FPS)
+#define SPRITE_WHOOSH (SPRITE_BULLET1+MAX_BULLETS)
 
 #define MAX_LIVES 9
 
@@ -247,26 +251,16 @@ void clear_sprites( void ) {
 	}
 }
 
-void map_sprite_irreg( int sprite, const char *map ) {
-	int x,y;
-	char *t = (char*)(map+2);
-	for( y=0 ; y<pgm_read_byte(map+1) ; y++ ) {
-		for( x=0 ; y<pgm_read_byte(map) ; y++ ) {
-			if( pgm_read_byte(t) != 0 ) {
-				sprites[sprite].tileIndex = pgm_read_byte(t);
-				sprite++;
-			}
-			t++;
-		}
-	}
-}
-
 void set_bullet( int b, bullet_status_t status ) {
-	bullet[b].status = status;
-	
 	switch( status ) {
 		case BULLET_FREE:
 			sprites[SPRITE_BULLET1+b].tileIndex = 0;
+			if( bullet[b].status == BULLET_LARGE ) {
+				int i;
+				for( i=0 ; i<8 ; i++ ) {
+					sprites[SPRITE_WHOOSH+i].tileIndex = 0;
+				}
+			}
 			break;
 		case BULLET_CHARGING:
 			sprites[SPRITE_BULLET1+b].tileIndex = 3;
@@ -277,15 +271,17 @@ void set_bullet( int b, bullet_status_t status ) {
 			bullet[b].y &= 0xfffe;
 			break;
 		case BULLET_MEDIUM:
-			sprites[SPRITE_BULLET1+b].tileIndex = 4;
+			sprites[SPRITE_BULLET1+b].tileIndex = 6;
 			bullet[b].y &= 0xfffe;
 			break;
 		case BULLET_LARGE:
-			sprites[SPRITE_BULLET1+b].tileIndex = 5;
+			bullet[b].y -= 4;
+			sprites[SPRITE_BULLET1+b].tileIndex = 0;
 			break;
 		default:
 			break;
 	}
+	bullet[b].status = status;
 }
 
 int new_bullet( void ) {
@@ -311,10 +307,12 @@ void update_bullet( int b ) {
 				case BULLET_CHARGING:
 					bullet[b].x = ship.x + 21;
 					bullet[b].y = ship.y + 9;
-					if( frame % 4 == 0 ) {
-						sprites[SPRITE_BULLET1+b].tileIndex++;
-						if( sprites[SPRITE_BULLET1+b].tileIndex > 5 ) {
-							sprites[SPRITE_BULLET1+b].tileIndex = 3;
+					if( bullet_charge > BULLET_CHARGE_MAX/8 ) {
+						if( frame % 4 == 0 ) {
+							sprites[SPRITE_BULLET1+b].tileIndex++;
+							if( sprites[SPRITE_BULLET1+b].tileIndex > 5 ) {
+								sprites[SPRITE_BULLET1+b].tileIndex = 3;
+							}
 						}
 					}
 					MoveSprite(SPRITE_BULLET1+b, bullet[b].x,bullet[b].y, 1,1);
@@ -326,7 +324,13 @@ void update_bullet( int b ) {
 					break;
 				case BULLET_LARGE:
 					bullet[b].x += BULLET_SPEED;
-					MoveSprite(SPRITE_BULLET1+b, bullet[b].x,bullet[b].y, 1,1);
+					if( frame % 4 == 0 ) {
+						MapSprite(SPRITE_WHOOSH, whoosh_map[0]);
+					}
+					else if( frame % 4 == 2 ) {
+						MapSprite(SPRITE_WHOOSH, whoosh_map[1]);
+					}
+					MoveSprite(SPRITE_WHOOSH, bullet[b].x,bullet[b].y, 4,2);
 					break;
 				default:
 					break;
