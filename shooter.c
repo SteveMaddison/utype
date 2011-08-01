@@ -88,14 +88,14 @@ const unsigned char sprite_col_map[] PROGMEM = {
 	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f
 };
 const unsigned char bg_col_map[] PROGMEM = {
-	0x00, 0x00, 0x00, 0x00, 0x0f, 0x0f, 0x03, 0x03,
-	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0c, 0x0c,
-	0x01, 0x0f, 0x0f, 0x0e, 0x07, 0x0f, 0x0b, 0x0f,
-	0x07, 0x0f, 0x0f, 0x08, 0x0d, 0x0f, 0x0e, 0x0f,
-	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f,
-	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f,
-	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f,
-	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f
+	0x00, 0x07, 0x0b, 0x0d, 0x0e, 0x0f, 0x0f, 0x0f,   0x07, 0x0f, 0x07, 0x0b, 0x0f, 0x0f, 0x06, 0x09,
+	0x01, 0x0f, 0x0e, 0x07, 0x0f, 0x0b, 0x0f, 0x0f,   0x03, 0x03, 0x03, 0x07, 0x0b, 0x0f, 0x07, 0x0b,
+	0x07, 0x0f, 0x02, 0x0d, 0x0f, 0x0e, 0x0f, 0x0f,   0x0f, 0x0f, 0x0f, 0x0d, 0x0e, 0x0f, 0x0d, 0x0e,
+	0x05, 0x00, 0x0f, 0x0f, 0x0f, 0x0f, 0x04, 0x08,   0x0c, 0x0c, 0x0c, 0x00, 0x00, 0x00, 0x0d, 0x0f,
+
+	0x0f, 0x0f, 0x0f, 0x0f, 0x00, 0x03, 0x0f, 0x01,   0x07, 0x0f, 0x05, 0x07, 0x0a, 0x03, 0x0f, 0x00,
+	0x0f, 0x0f, 0x0f, 0x0f, 0x00, 0x0c, 0x0f, 0x0f,   0x0d, 0x0f, 0x05, 0x0f, 0x0a, 0x0c, 0x0f, 0x00,
+	0x0f, 0x0f, 0x0f, 0x0f, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
 #define TITLE_SECONDS   10
@@ -177,10 +177,16 @@ enemy_def_t enemies1[] PROGMEM = {
 	{ 0, 0, ENEMY_NONE }
 };
 
-char enemy_hp[ENEMY_COUNT] = {
+char enemy_hp[ENEMY_COUNT] PROGMEM = {
 	0,
 	5,	// Mine
 	1	// Spinner
+};
+
+int enemy_score[ENEMY_COUNT] PROGMEM = {
+	0,
+	1000,	// Mine
+	200		// Spinner
 };
 
 // Globals
@@ -213,7 +219,7 @@ int add_enemy( enemy_id_t id, int x, int y ) {
 			enemies[i].id = id;
 			enemies[i].x = x;
 			enemies[i].y = y;
-			enemies[i].hp = enemy_hp[id];
+			enemies[i].hp = pgm_read_byte( &enemy_hp[id] );
 			return i;
 		}
 	}
@@ -417,16 +423,6 @@ void update_bullet( int b ) {
 	}
 }
 
-void clear_enemies() {
-	int i;
-	
-	for( i=0 ; i<MAX_ENEMIES ; i++ ) {
-		enemies[i].id = ENEMY_NONE;
-		enemies[i].x = 0;
-		enemies[i].y = 0;
-	}
-}
-
 void clear_tiles( int x, int y, int width, int height ) {
 	int xx,yy;
 	
@@ -434,6 +430,28 @@ void clear_tiles( int x, int y, int width, int height ) {
 		for( xx=0 ; xx<width ; xx++ ) {
 			SetTile((x+xx)%VRAM_TILES_H,y+yy,0);
 		}	
+	}
+}
+
+void clear_enemy( int e ) {
+	switch( enemies[e].id ) {
+		case ENEMY_MINE:
+			clear_tiles( enemies[e].x, enemies[e].y, 2, 2 );
+			break;
+		case ENEMY_SPINNER:
+			clear_tiles( enemies[e].x, enemies[e].y, 3, 2 );
+			break;
+		default:
+			break;
+	}
+	enemies[e].id = ENEMY_NONE;
+}
+
+void clear_enemies() {
+	int i;
+	
+	for( i=0 ; i<MAX_ENEMIES ; i++ ) {
+		clear_enemy(i);
 	}
 }
 
@@ -456,17 +474,7 @@ void update_enemies() {
 
 	for( i=0 ; i<MAX_ENEMIES ; i++ ) {
 		if( enemies[i].x == level_vram_column - 3 ) {
-			switch( enemies[i].id ) {
-				case ENEMY_MINE:
-					clear_tiles( enemies[i].x, enemies[i].y, 2, 2 );
-					break;
-				case ENEMY_SPINNER:
-					clear_tiles( enemies[i].x, enemies[i].y, 3, 2 );
-					break;
-				default:
-					break;
-			}	
-			enemies[i].id = 0;
+			clear_enemy( i );
 		}
 		else {
 			switch( enemies[i].id ) {
@@ -632,7 +640,7 @@ void init_overlay() {
 	update_lives();
 }
 
-int col_check( int sprite ) {
+unsigned int col_check( int sprite, int *tile_x, int *tile_y ) {
 		unsigned char smap = pgm_read_byte( &sprite_col_map[sprites[sprite].tileIndex] );
 
 		if( smap==0 ) {
@@ -640,13 +648,13 @@ int col_check( int sprite ) {
 			return 0;
 		}
 		else {
-			int tile_x = (Screen.scrollX + sprites[sprite].x) / 8;
+			*tile_x = (Screen.scrollX + sprites[sprite].x) / 8;
 			int offset_x = (Screen.scrollX + sprites[sprite].x) % 8;
-			int tile_y = sprites[sprite].y / 8;
+			*tile_y = sprites[sprite].y / 8;
 			int offset_y = sprites[sprite].y % 8;
 
 			// This is the tile the top-left corner of the sprite occupies.
-			unsigned char *tile = &vram[0] + (tile_y * VRAM_TILES_H) + tile_x;
+			unsigned char *tile = &vram[0] + ((*tile_y) * VRAM_TILES_H) + (*tile_x);
 			
 			// Build up a bitmap representing a 2x2 grid extending from the tile.
 			// +-----+-----+
@@ -658,7 +666,7 @@ int col_check( int sprite ) {
 			// +-----+-----+
 			unsigned int t = pgm_read_byte( &bg_col_map[(*tile    )-RAM_TILES_COUNT] ) << 12
 						   | pgm_read_byte( &bg_col_map[(*(tile+1))-RAM_TILES_COUNT] ) << 8;
-			if( tile_y < LEVEL_TILES_Y )
+			if( *tile_y < LEVEL_TILES_Y )
 				t |= pgm_read_byte( &bg_col_map[(*(tile+VRAM_TILES_H  ))-RAM_TILES_COUNT] ) << 4
 				  |  pgm_read_byte( &bg_col_map[(*(tile+VRAM_TILES_H+1))-RAM_TILES_COUNT] );
 			// No chance of collision if all tiles are empty.
@@ -695,16 +703,51 @@ int col_check( int sprite ) {
 	
 			// Now just AND the bitmasks - a collision will produce > 0;
 			if( s & t ) {
-				return 1;
+				return s & t;
 			}
 		}
 		return 0;
+}
+
+void check_enemy_hit( int x, int y ) {
+	int i;
+	char hit = 0;
+	
+	for( i=0 ; i<MAX_ENEMIES ; i++ ) {
+		switch( enemies[i].id ) {
+			case ENEMY_NONE:
+				break;
+			case ENEMY_MINE:
+				if((x == enemies[i].x || x == enemies[i].x+1)
+				&& (y == enemies[i].y || y == enemies[i].y+1) )
+					hit = 1;
+				break;
+			case ENEMY_SPINNER:
+				if((x >= enemies[i].x && x <= enemies[i].x+2)
+				&& (y == enemies[i].y || y == enemies[i].y+1) )
+					hit = 1;
+				break;
+			default:
+				break;
+		}
+		if( hit ) {
+			enemies[i].hp--;
+			if( enemies[i].hp == 0 ) {
+				score += pgm_read_word( &enemy_score[enemies[i].id] );
+				clear_enemy(i);
+			}
+			return;
+		}
+	}
 }
 
 void start_level( int level ){
 	int i;
 	bool done = false;
 	int current_bullet = -1;
+	long old_score = 0;
+	unsigned int col_map;
+	int col_x, col_y;
 
 	FadeOut(FADE_SPEED,true);
 
@@ -813,7 +856,8 @@ void start_level( int level ){
 		// Collison detection
 		for( i=0 ; i<MAX_SPRITES ; i++ ) {
 			if( sprites[i].tileIndex ) {
-				if( col_check(i) ) {
+				col_map = col_check( i, &col_x, &col_y );
+				if( col_map ) {
 					if( i<SPRITE_BULLET1 ) {
 						// Ship has crashed
 						if( ship.status != STATUS_EXPLODING ) {
@@ -826,11 +870,26 @@ void start_level( int level ){
 					else if( i < SPRITE_BULLET1+MAX_BULLETS ) {
 						// Bullet hit something...
 						set_bullet( i-SPRITE_BULLET1, BULLET_FREE );
-						score += 100;
-						update_score();
+						if( col_map & 0xf000 ) {
+							check_enemy_hit( col_x,   col_y );
+						}
+						if( col_map & 0x0f00 ) {
+							check_enemy_hit( col_x+1, col_y );
+						}
+						if( col_map & 0x00f0 ) {
+							check_enemy_hit( col_x,   col_y+1 );
+						}
+						if( col_map & 0x000f ) {
+							check_enemy_hit( col_x+1, col_y+1 );
+						}						
 					}
 				}
 			}
+		}
+
+		if( score != old_score ) {
+			update_score();
+			old_score = score;
 		}
 
 		update_enemies();
