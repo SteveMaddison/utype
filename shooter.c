@@ -127,6 +127,8 @@ typedef struct {
 #define BULLET_DELAY    ((SCREEN_TILES_H*8)/BULLET_SPEED/(MAX_BULLETS-1))
 #define BULLET_CHARGE_MAX (FPS)
 
+#define MAX_LIVES 9
+
 // Globals
 unsigned int frame = 0;
 ship_t ship;
@@ -134,6 +136,7 @@ bullet_t bullet[MAX_BULLETS];
 char bullet_charge = 0;
 char level = 0;
 long score = 0;
+char lives = 0;
 unsigned char *level_pos = NULL;
 unsigned char *level_prev_column = NULL;
 char level_column = 0;
@@ -377,15 +380,24 @@ void text_write_number( char x, char y, unsigned long num, align_t align, bool o
 	}
 
 	if(pos == 0) {
-		x--; pos++;
+		if( align == ALIGN_RIGHT )
+			x--;
+		pos++;
 	}
 	while(--pos >= 0) {
-		SetTile(x++,y,digits[pos] + 32 + OVERLAY_OFFSET(level) + (overlay ? RAM_TILES_COUNT : 0 ) );
+		if( overlay ) {
+			vram[(VRAM_TILES_H*(VRAM_TILES_V+y))+x] = digits[pos] + 32 + OVERLAY_OFFSET(level) + RAM_TILES_COUNT;
+			x++;
+		}
+		else {
+			SetTile(x++,y,digits[pos] + 32 + OVERLAY_OFFSET(level) );
+		}
 	}
 }
 
 void update_score( void ) {
-	text_write_number( 1, VRAM_TILES_H+2, score, ALIGN_LEFT, true );
+	if( score > MAX_SCORE ) score = MAX_SCORE;
+	text_write_number( 1, 1, score, ALIGN_LEFT, true );
 }
 
 void update_charge( void ) {
@@ -403,8 +415,13 @@ void update_charge( void ) {
 		else if( i == 9 )
 			offset++;		
 		
-		vram[(VRAM_TILES_H*(VRAM_TILES_V+1))+i+9] = OVERLAY_OFFSET(level) + RAM_TILES_COUNT + offset;
+		vram[(VRAM_TILES_H*VRAM_TILES_V)+i+9] = OVERLAY_OFFSET(level) + RAM_TILES_COUNT + offset;
 	}
+}
+
+void update_lives() {
+	if( lives > MAX_LIVES ) lives = MAX_LIVES;
+	vram[(VRAM_TILES_H*(VRAM_TILES_V+1))+26] = lives + 32 + OVERLAY_OFFSET(level) + RAM_TILES_COUNT;
 }
 
 void init_overlay() {
@@ -422,13 +439,18 @@ void init_overlay() {
 	vram[(VRAM_TILES_H*VRAM_TILES_V)+3] = OVERLAY_OFFSET(level) + RAM_TILES_COUNT + 56;
 
 	// "Charge" text
-	vram[(VRAM_TILES_H*VRAM_TILES_V)+12] = OVERLAY_OFFSET(level) + RAM_TILES_COUNT + 57;
-	vram[(VRAM_TILES_H*VRAM_TILES_V)+13] = OVERLAY_OFFSET(level) + RAM_TILES_COUNT + 58;
-	vram[(VRAM_TILES_H*VRAM_TILES_V)+14] = OVERLAY_OFFSET(level) + RAM_TILES_COUNT + 59;
-	vram[(VRAM_TILES_H*VRAM_TILES_V)+15] = OVERLAY_OFFSET(level) + RAM_TILES_COUNT + 60;
+	vram[(VRAM_TILES_H*(VRAM_TILES_V+1))+12] = OVERLAY_OFFSET(level) + RAM_TILES_COUNT + 57;
+	vram[(VRAM_TILES_H*(VRAM_TILES_V+1))+13] = OVERLAY_OFFSET(level) + RAM_TILES_COUNT + 58;
+	vram[(VRAM_TILES_H*(VRAM_TILES_V+1))+14] = OVERLAY_OFFSET(level) + RAM_TILES_COUNT + 59;
+	vram[(VRAM_TILES_H*(VRAM_TILES_V+1))+15] = OVERLAY_OFFSET(level) + RAM_TILES_COUNT + 60;
 	
+	// Lives counter
+	vram[(VRAM_TILES_H*(VRAM_TILES_V+1))+24] = OVERLAY_OFFSET(level) + RAM_TILES_COUNT + 61;
+	vram[(VRAM_TILES_H*(VRAM_TILES_V+1))+25] = OVERLAY_OFFSET(level) + RAM_TILES_COUNT + 62;
+
 	update_score();
 	update_charge();
+	update_lives();
 }
 
 int col_check( int sprite ) {
@@ -622,6 +644,8 @@ void start_level( int level ){
 					else if( i < SPRITE_BULLET1+MAX_BULLETS ) {
 						// Bullet hit something...
 						set_bullet( i-SPRITE_BULLET1, BULLET_FREE );
+						score += 100;
+						update_score();
 					}
 				}
 			}
