@@ -153,8 +153,10 @@ typedef struct {
 } enemy_def_t;
 
 enemy_def_t enemies1[] PROGMEM = {
-//	{ 20, 10, ENEMY_MINE },
-	{ 30, 12, ENEMY_SPINNER },
+	{ 20, 4, ENEMY_MINE },
+	{ 31, 12, ENEMY_SPINNER },
+	{ 33, 10, ENEMY_SPINNER },
+	{ 35, 8, ENEMY_SPINNER },
 	{ 0, 0, ENEMY_NONE }
 };
 
@@ -173,9 +175,6 @@ char level_col_repeat = 0;
 int level_column = 0;
 char scroll_speed = 0;
 enemy_def_t *enemy_pos = enemies1;
-#define ENEMY_COL_BUFFER_SIZE 4
-char enemy_col_buffer[ENEMY_COL_BUFFER_SIZE][VRAM_TILES_V];
-int enemy_col_buffer_column = 0;
 struct enemy *enemy_start = NULL;
 
 #define HIGH_SCORES 8
@@ -203,8 +202,6 @@ void draw_enemy( int x, int y, enemy_id_t id ) {
 			case ENEMY_MINE:
 				SetTile(x,y,   30);
 				SetTile(x,y+1, 46);
-				enemy_col_buffer[enemy_col_buffer_column][y]   = 31;
-				enemy_col_buffer[enemy_col_buffer_column][y+1] = 47;
 				break;
 			case ENEMY_SPINNER:
 				// Drawn during update
@@ -260,16 +257,6 @@ void level_draw_column( void ) {
 			y++;
 		}
 	}
-
-	// Check enemy column buffer
-	for( y=0 ; y<VRAM_TILES_V ; y++ ) {
-		if( enemy_col_buffer[enemy_col_buffer_column][y] != 0 ) {
-			SetTile( level_vram_column, y, enemy_col_buffer[enemy_col_buffer_column][y] );
-			enemy_col_buffer[enemy_col_buffer_column][y] = 0;
-		}
-	}
-	enemy_col_buffer_column++;
-	enemy_col_buffer_column %= ENEMY_COL_BUFFER_SIZE;
 
 	// Any new enemies?
 	while( pgm_read_word( &enemy_pos->x ) == level_column ) {
@@ -420,6 +407,18 @@ void update_bullet( int b ) {
 			}
 		}
 	}
+}
+
+void clear_enemies() {
+	struct enemy *e = enemy_start;
+	struct enemy *tmp = enemy_start;
+	
+	while( e ) {
+		tmp = e;
+		e = e->next;
+		free( tmp );
+	}
+	enemy_start = NULL;
 }
 
 void update_enemies() {
@@ -685,8 +684,9 @@ void start_level( int level ){
 	score = 0;
 	bullet_charge = 0;
 	frame = 0;
-	enemy_start = NULL;
 
+	clear_enemies();
+	enemy_pos = enemies1;
 	clear_sprites();
 	SetTileTable(tiles1);
 	SetSpriteVisibility(true);
