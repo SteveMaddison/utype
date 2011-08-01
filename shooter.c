@@ -131,6 +131,33 @@ typedef struct {
 
 #define MAX_LIVES 9
 
+typedef enum {
+	ENEMY_NONE,
+	ENEMY_MINE,
+	ENEMY_SPINNER,
+	ENEMY_COUNT
+} enemy_id_t;
+
+struct enemy {
+	struct enemy *next;
+	int x;
+	int y;
+	enemy_id_t id;
+	char bg[6];
+};
+
+typedef struct {
+	int x;
+	int y;
+	enemy_id_t id;
+} enemy_def_t;
+
+enemy_def_t enemies1[] PROGMEM = {
+//	{ 20, 10, ENEMY_MINE },
+	{ 30, 12, ENEMY_SPINNER },
+	{ 0, 0, ENEMY_NONE }
+};
+
 // Globals
 unsigned int frame = 0;
 ship_t ship;
@@ -141,14 +168,52 @@ long score = 0;
 char lives = 0;
 unsigned char *level_pos = NULL;
 unsigned char *level_prev_column = NULL;
-char level_column = 0;
+char level_vram_column = 0;
 char level_col_repeat = 0;
+int level_column = 0;
 char scroll_speed = 0;
+enemy_def_t *enemy_pos = enemies1;
+#define ENEMY_COL_BUFFER_SIZE 4
+char enemy_col_buffer[ENEMY_COL_BUFFER_SIZE][VRAM_TILES_V];
+int enemy_col_buffer_column = 0;
+struct enemy *enemy_start = NULL;
 
 #define HIGH_SCORES 8
 #define MAX_SCORE 999999999
 char hi_name[HIGH_SCORES][4] = { "SAM\0","TOM\0","UZE\0","TUX\0","JIM\0","B*A\0","ABC\0","XYZ\0" };
 long hi_score[HIGH_SCORES]   = { 1000000, 900000, 800000, 700000, 600000, 500000, 400000, 300000 };
+
+struct enemy *add_enemy( enemy_id_t id, int x, int y ) {
+	struct enemy *new = malloc(sizeof(struct enemy));
+	if( new != NULL ) {
+		score+=100;
+		new->id = id;
+		new->x = x;
+		new->y = y;
+		new->next = enemy_start;
+		enemy_start = new;
+	}
+	return new;
+}
+
+void draw_enemy( int x, int y, enemy_id_t id ) {
+	struct enemy *e = add_enemy( id, x, y );
+	if( e != NULL ) {
+		switch( id ) {
+			case ENEMY_MINE:
+				SetTile(x,y,   30);
+				SetTile(x,y+1, 46);
+				enemy_col_buffer[enemy_col_buffer_column][y]   = 31;
+				enemy_col_buffer[enemy_col_buffer_column][y+1] = 47;
+				break;
+			case ENEMY_SPINNER:
+				// Drawn during update
+				break;
+			default:
+				break;
+		}
+	}
+}
 
 void level_draw_column( void ) {
 	int y = 0;
@@ -184,16 +249,32 @@ void level_draw_column( void ) {
 			unsigned char t = pgm_read_byte(p-1);
 			p++;
 			for( c=pgm_read_byte(p) ; c>0 ; c-- ) {
-				SetTile(level_column,y,t);
+				SetTile(level_vram_column,y,t);
 				y++;
 			}
 			p++;
 		}
 		else {
-			SetTile(level_column,y,pgm_read_byte(p));
+			SetTile(level_vram_column,y,pgm_read_byte(p));
 			p++;
 			y++;
 		}
+	}
+
+	// Check enemy column buffer
+	for( y=0 ; y<VRAM_TILES_V ; y++ ) {
+		if( enemy_col_buffer[enemy_col_buffer_column][y] != 0 ) {
+			SetTile( level_vram_column, y, enemy_col_buffer[enemy_col_buffer_column][y] );
+			enemy_col_buffer[enemy_col_buffer_column][y] = 0;
+		}
+	}
+	enemy_col_buffer_column++;
+	enemy_col_buffer_column %= ENEMY_COL_BUFFER_SIZE;
+
+	// Any new enemies?
+	while( pgm_read_word( &enemy_pos->x ) == level_column ) {
+		draw_enemy( level_vram_column, pgm_read_word( &enemy_pos->y ), pgm_read_word( &enemy_pos->id ) );
+		enemy_pos++;
 	}
 
 	if( level_col_repeat ) {
@@ -204,9 +285,10 @@ void level_draw_column( void ) {
 		level_pos = p;
 	}
 
-	level_column++;
-	if( level_column >= VRAM_TILES_H ) {
-		level_column = 0;
+	level_column++;	
+	level_vram_column++;
+	if( level_vram_column >= VRAM_TILES_H ) {
+		level_vram_column = 0;
 	}
 }
 
@@ -215,6 +297,7 @@ void level_load( unsigned char *level_data ) {
 
 	// Reset our level housekeeping.
 	level_pos = level_data;
+	level_vram_column = 0;
 	level_column = 0;
 	level_col_repeat = 0;
 	level_prev_column = NULL;
@@ -336,6 +419,72 @@ void update_bullet( int b ) {
 					break;
 			}
 		}
+	}
+}
+
+void update_enemies() {
+	struct enemy *e = enemy_start;
+
+	while( e != NULL ) {
+		switch( e->id ) {
+			case ENEMY_MINE:
+				switch( frame % FPS ) {
+					case 0:
+						SetTile(e->x, e->y+1, 46 ); 
+						break;
+					case FPS/2:
+						SetTile(e->x, e->y+1, 62 ); 
+						break;
+					default:
+						break;
+				}
+				break;
+			case ENEMY_SPINNER:
+				switch( frame % 16 ) {
+					case 0:
+						e->x--;
+						SetTile( e->x,   e->y,   68 );
+						SetTile( e->x+1, e->y,   69 );
+						SetTile( e->x+2, e->y,   70 );
+						SetTile( e->x,   e->y+1, 84 );
+						SetTile( e->x+1, e->y+1, 85 );
+						SetTile( e->x+2, e->y+1, 86 );
+						// Erase trail
+						SetTile( e->x+3, e->y,   0 );
+						SetTile( e->x+3, e->y+1, 0 );
+						break;						
+					case 4:
+						SetTile( e->x,   e->y,   71 );
+						SetTile( e->x+1, e->y,   72 );
+						SetTile( e->x+2, e->y,   73 );
+						SetTile( e->x,   e->y+1, 87 );
+						SetTile( e->x+1, e->y+1, 88 );
+						SetTile( e->x+2, e->y+1, 89 );
+						break;
+					case 8:
+						SetTile( e->x,   e->y,   74 );
+						SetTile( e->x+1, e->y,   75 );
+						SetTile( e->x+2, e->y,   76 );
+						SetTile( e->x,   e->y+1, 90 );
+						SetTile( e->x+1, e->y+1, 91 );
+						SetTile( e->x+2, e->y+1, 92 );
+						break;
+					case 12:
+						SetTile( e->x,   e->y,   77 );
+						SetTile( e->x+1, e->y,   78 );
+						SetTile( e->x+2, e->y,   79 );
+						SetTile( e->x,   e->y+1, 93 );
+						SetTile( e->x+1, e->y+1, 94 );
+						SetTile( e->x+2, e->y+1, 95 );
+						break;
+					default:
+						break;
+				}
+				break;
+			default:
+				break;
+		}
+		e = e->next;
 	}
 }
 
@@ -532,6 +681,12 @@ void start_level( int level ){
 	int current_bullet = -1;
 
 	FadeOut(FADE_SPEED,true);
+
+	score = 0;
+	bullet_charge = 0;
+	frame = 0;
+	enemy_start = NULL;
+
 	clear_sprites();
 	SetTileTable(tiles1);
 	SetSpriteVisibility(true);
@@ -549,10 +704,6 @@ void start_level( int level ){
 	ship.speed = 1;
 	ship.status = STATUS_OK;
 	
-	score = 0;
-	bullet_charge = 0;
-	frame = 0;
-
 	init_overlay();
 
 	FadeIn(FADE_SPEED,false);
@@ -654,6 +805,8 @@ void start_level( int level ){
 				}
 			}
 		}
+
+		update_enemies();
 
 		frame++;
 	}
