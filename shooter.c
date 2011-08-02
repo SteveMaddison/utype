@@ -731,7 +731,7 @@ unsigned int col_check( int sprite, int *tile_x, int *tile_y ) {
 			return 0;
 		}
 		else {
-			*tile_x = (Screen.scrollX + sprites[sprite].x) / 8;
+			*tile_x = ((Screen.scrollX + sprites[sprite].x) / 8) % VRAM_TILES_H;
 			int offset_x = (Screen.scrollX + sprites[sprite].x) % 8;
 			*tile_y = sprites[sprite].y / 8;
 			int offset_y = sprites[sprite].y % 8;
