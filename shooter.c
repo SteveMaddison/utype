@@ -38,10 +38,28 @@ void SetScrolling(char sx,char sy);
 
 #define OVERLAY_OFFSET(x) ((x<3) ? (192-RAM_TILES_COUNT) : 0)
 
-#define EXPLOSION_FRAMES 2
-const char explosion_map_2x2[EXPLOSION_FRAMES][6] PROGMEM = {
-	{ 2,2,	20, 28, 29, 21 },
-	{ 2,2,	22, 30, 31, 23 }
+#define EXPLOSION_FRAMES_S 2
+const char ship_explosion_map[EXPLOSION_FRAMES_S][6] PROGMEM = {
+	{ 2,2,	20, 28,
+			29, 21 },
+	{ 2,2,	22, 30,
+			31, 23 }
+};
+const char explosion_map_2x2[EXPLOSION_FRAMES_S][6] PROGMEM = {
+	{ 2,2,	144, 145,
+			160, 161 },
+	{ 2,2,	146, 147,
+			162, 163 }
+};
+
+#define EXPLOSION_FRAMES_M 3
+const char explosion_map_3x2[EXPLOSION_FRAMES_M][8] PROGMEM = {
+	{ 3,2,	144, 145, 0,
+			160, 161, 0 },
+	{ 3,2,	146, 144, 145,
+			162, 160, 161 },
+	{ 3,2,	147, 146, 147,
+			163, 162, 163 }
 };
 
 #define WHOOSH_FRAMES 2
@@ -153,6 +171,8 @@ typedef enum {
 	ENEMY_NONE,
 	ENEMY_MINE,
 	ENEMY_SPINNER,
+	ENEMY_EXP_2X2,
+	ENEMY_EXP_3X2,
 	ENEMY_COUNT
 } enemy_id_t;
 
@@ -167,6 +187,7 @@ typedef struct {
 	char y;
 	enemy_id_t id;
 	char hp;
+	char anim_step;
 } enemy_t;
 
 enemy_def_t enemies1[] PROGMEM = {
@@ -436,9 +457,11 @@ void clear_tiles( int x, int y, int width, int height ) {
 void clear_enemy( int e ) {
 	switch( enemies[e].id ) {
 		case ENEMY_MINE:
+		case ENEMY_EXP_2X2:
 			clear_tiles( enemies[e].x, enemies[e].y, 2, 2 );
 			break;
 		case ENEMY_SPINNER:
+		case ENEMY_EXP_3X2:
 			clear_tiles( enemies[e].x, enemies[e].y, 3, 2 );
 			break;
 		default:
@@ -456,15 +479,15 @@ void clear_enemies() {
 }
 
 void draw_enemy( char x, char y, const char *map ) {
-// This is basically DrawMap2() with wrapping.
+// This is basically DrawMap2() with wrapping and transparency.
 	unsigned char i;
 	unsigned char mapWidth=pgm_read_byte(&(map[0]));
 	unsigned char mapHeight=pgm_read_byte(&(map[1]));
 
 	for(int dy=0;dy<mapHeight;dy++){
 		for(int dx=0;dx<mapWidth;dx++){			
-			i=pgm_read_byte(&(map[(dy*mapWidth)+dx+2]));
-			vram[((y+dy)*VRAM_TILES_H)+((x+dx)%VRAM_TILES_H)]=(i + RAM_TILES_COUNT) ;
+			if(( i=pgm_read_byte(&(map[(dy*mapWidth)+dx+2])) ))
+				vram[((y+dy)*VRAM_TILES_H)+((x+dx)%VRAM_TILES_H)]=(i + RAM_TILES_COUNT) ;
 		}
 	}
 }
@@ -514,6 +537,41 @@ void update_enemies() {
 						default:
 							break;
 					}
+					break;
+				case ENEMY_EXP_2X2:
+					switch( enemies[i].anim_step % 30 ) {
+						case 0:
+							draw_enemy( enemies[i].x, enemies[i].y, explosion_map_2x2[0] );
+							break;
+						case 10:
+							draw_enemy( enemies[i].x, enemies[i].y, explosion_map_2x2[1] );
+							break;
+						case 20:
+							clear_tiles( enemies[i].x, enemies[i].y, 2, 2 );
+							clear_enemy(i);
+							break;
+						default:
+							break;
+					}
+					enemies[i].anim_step++;
+					break;
+				case ENEMY_EXP_3X2:
+					switch( enemies[i].anim_step % 30 ) {
+						case 0:
+							draw_enemy( enemies[i].x, enemies[i].y, explosion_map_3x2[0] );
+							break;
+						case 5:
+							draw_enemy( enemies[i].x, enemies[i].y, explosion_map_3x2[1] );
+							break;
+						case 10:
+							draw_enemy( enemies[i].x, enemies[i].y, explosion_map_3x2[2] );
+							break;
+						case 15:
+							clear_tiles( enemies[i].x, enemies[i].y, 3, 2 );
+							clear_enemy(i);
+							break;
+					}
+					enemies[i].anim_step++;
 					break;
 				default:
 					break;
@@ -734,7 +792,18 @@ void check_enemy_hit( int x, int y ) {
 			enemies[i].hp--;
 			if( enemies[i].hp == 0 ) {
 				score += pgm_read_word( &enemy_score[enemies[i].id] );
-				clear_enemy(i);
+				switch( enemies[i].id ) {
+					case ENEMY_MINE:
+						enemies[i].id = ENEMY_EXP_2X2;
+						enemies[i].anim_step = 0;
+						break;
+					case ENEMY_SPINNER:
+						enemies[i].id = ENEMY_EXP_3X2;
+						enemies[i].anim_step = 0;
+						break;
+					default:
+						break;
+				}
 			}
 			return;
 		}
@@ -835,10 +904,10 @@ void start_level( int level ){
 		}
 		else if( ship.status == STATUS_EXPLODING ) {
 			if( ship.anim_step == 16 )
-				MapSprite( 0, explosion_map_2x2[0] );
+				MapSprite( 0, ship_explosion_map[0] );
 
 			if( ship.anim_step == 8 )
-				MapSprite( 0, explosion_map_2x2[1] );
+				MapSprite( 0, ship_explosion_map[1] );
 			
 			if( ship.anim_step == 0 ) {
 				for( i=0 ; i<SPRITE_BULLET1 ; i++ ) {
