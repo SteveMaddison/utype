@@ -44,8 +44,8 @@ my %enemy_top_left = (
 	71 => 'ENEMY_SPINNER',
 	74 => 'ENEMY_SPINNER',
 	77 => 'ENEMY_SPINNER',
-	50 => 'ENEMY_TENTACLE_4',
-	51 => 'ENEMY_TENTACLE_6'
+	50 => 'ENEMY_TENTACLE',
+	51 => 'ENEMY_TENTACLE',
 );
 my @enemy_list = ();
 
@@ -178,14 +178,9 @@ print "\n";
 
 print "// Enemy list:\n";
 print "enemy_def_t ${name}_enemies[] PROGMEM = {\n";
-for( my $i = 0 ; $i < $#enemy_list ; $i++ ) {
-	print "\t{ $enemy_list[$i] }";
-	if( $i != $#enemy_list - 1 ) {
-		print ",\n"
-	}
-	else {
-		print "\n";
-	}
+foreach my $enemy_def ( @enemy_list) {
+	print "\t{ $enemy_def },\n";
 }
+print "\t{ 0, 0, ENEMY_NONE }\n";
 print "};\n\n";
 
