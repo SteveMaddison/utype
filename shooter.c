@@ -215,7 +215,8 @@ char level_vram_column = 0;
 char level_col_repeat = 0;
 int level_column = 0;
 char scroll_speed = 0;
-#define MAX_ENEMIES 9
+char scroll_countdown = 0;
+#define MAX_ENEMIES 12
 enemy_def_t *enemy_pos = NULL;
 enemy_t enemies[MAX_ENEMIES];
 
@@ -243,6 +244,10 @@ void level_draw_column( void ) {
 	int c = 0;
 	unsigned char *p = level_pos;
 
+	if( scroll_countdown ) {
+		return;
+	}
+
 	if( level_col_repeat ) {
 		// Copy previous column.
 		p = level_prev_column;
@@ -253,7 +258,7 @@ void level_draw_column( void ) {
 			p++;
 			if( pgm_read_byte(p) == 0xff ) {
 				// End of level
-				scroll_speed = 0;
+				scroll_countdown = 24;
 				return;
 			}
 			else {
@@ -314,6 +319,7 @@ void level_load( unsigned char *level_data ) {
 	level_column = 0;
 	level_col_repeat = 0;
 	level_prev_column = NULL;
+	scroll_countdown = 0;
 	scroll_speed = 5;
 	ClearVram();
 
@@ -334,6 +340,13 @@ void scroll( void ) {
 				level_draw_column();
 			}
 			wait = scroll_speed;
+			if( scroll_countdown ) {
+				scroll_countdown--;
+				score = scroll_countdown;
+				if( scroll_countdown == 0 ) {
+					scroll_speed = 0;
+				}
+			}
 		}
 	}
 }
