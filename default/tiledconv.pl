@@ -33,14 +33,19 @@ my %enemy_tile = (
 	90 => 1, 91 => 1, 92 => 1,
 
 	77 => 1, 78 => 1, 79 => 1,
-	93 => 1, 94 => 1, 95 => 1
+	93 => 1, 94 => 1, 95 => 1,
+
+	# Tentacles
+	50 => 1, 51 => 1
 );
 my %enemy_top_left = (
 	30 => 'ENEMY_MINE',
 	68 => 'ENEMY_SPINNER',
 	71 => 'ENEMY_SPINNER',
 	74 => 'ENEMY_SPINNER',
-	77 => 'ENEMY_SPINNER'
+	77 => 'ENEMY_SPINNER',
+	50 => 'ENEMY_TENTACLE_4',
+	51 => 'ENEMY_TENTACLE_6'
 );
 my @enemy_list = ();
 

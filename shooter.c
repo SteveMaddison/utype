@@ -36,6 +36,9 @@ typedef enum {
 	ENEMY_NONE,
 	ENEMY_MINE,
 	ENEMY_SPINNER,
+	ENEMY_TENTACLE_4,
+	ENEMY_TENTACLE_6,
+
 	ENEMY_EXP_2X2,
 	ENEMY_EXP_3X2,
 	ENEMY_COUNT
@@ -52,7 +55,7 @@ typedef struct {
 	char y;
 	enemy_id_t id;
 	char hp;
-	char anim_step;
+	unsigned char anim_step;
 } enemy_t;
 
 #include "data/level1.inc"
@@ -107,6 +110,16 @@ char spinner_map[4][8] PROGMEM = {
 	{ 3,2,	77,78,79,
 			93,94,95 }
 };
+
+char tentacle_4_map[2][6] PROGMEM = {
+	{ 4,1,	50,51,50,51 },
+	{ 4,1,	51,50,51,50 }
+};
+char tentacle_6_map[2][8] PROGMEM = {
+	{ 6,1,	51,50,51,50,51,50 },
+	{ 6,1,	50,51,50,51,50,51 }
+};
+
 
 // Collision detection bitmaps for tiles.
 // For each tile, determine which quadrants are solid.
@@ -233,6 +246,7 @@ int add_enemy( enemy_id_t id, int x, int y ) {
 			enemies[i].x = x;
 			enemies[i].y = y;
 			enemies[i].hp = pgm_read_byte( &enemy_hp[id] );
+			enemies[i].anim_step = 0;
 			return i;
 		}
 	}
@@ -290,8 +304,8 @@ void level_draw_column( void ) {
 	}
 
 	// Any new enemies?
-	while( pgm_read_byte( &enemy_pos->x ) == level_column-4 ) {
-		add_enemy( pgm_read_byte( &enemy_pos->id ), level_vram_column-4, pgm_read_byte( &enemy_pos->y ) );
+	while( pgm_read_byte( &enemy_pos->x ) == level_column-3 ) {
+		add_enemy( pgm_read_byte( &enemy_pos->id ), level_vram_column-3, pgm_read_byte( &enemy_pos->y ) );
 		enemy_pos++;
 	}
 
@@ -342,7 +356,6 @@ void scroll( void ) {
 			wait = scroll_speed;
 			if( scroll_countdown ) {
 				scroll_countdown--;
-				score = scroll_countdown;
 				if( scroll_countdown == 0 ) {
 					scroll_speed = 0;
 				}
@@ -471,6 +484,8 @@ void clear_enemy( int e ) {
 		default:
 			break;
 	}
+	enemies[e].x = level_vram_column;
+	enemies[e].y = 0;
 	enemies[e].id = ENEMY_NONE;
 }
 
@@ -500,7 +515,10 @@ void update_enemies() {
 	int i;
 
 	for( i=0 ; i<MAX_ENEMIES ; i++ ) {
-		if( enemies[i].x == level_vram_column - 3 ) {
+		if( enemies[i].x < 0 ) {
+			enemies[i].x = VRAM_TILES_H - 1;
+		}
+		if( enemies[i].x >= level_vram_column-3 && enemies[i].x <= level_vram_column-1 ) {
 			clear_enemy( i );
 		}
 		else {
@@ -508,7 +526,7 @@ void update_enemies() {
 				case ENEMY_NONE:
 					break;
 				case ENEMY_MINE:
-					switch( frame % 60 ) {
+					switch( enemies[i].anim_step % 60 ) {
 						case 0:
 							draw_enemy( enemies[i].x, enemies[i].y, mine_map[0] );
 							break;
@@ -520,13 +538,13 @@ void update_enemies() {
 					}
 					break;
 				case ENEMY_SPINNER:
-					switch( frame % 16 ) {
+					switch( enemies[i].anim_step % 16 ) {
 						case 0:
 							clear_tiles( enemies[i].x+2, enemies[i].y, 1, 2 );
 							enemies[i].x--;
 							if( enemies[i].x < 0 ) {
 								enemies[i].x = VRAM_TILES_H - 1;
-							} 
+							}
 							draw_enemy( enemies[i].x, enemies[i].y, spinner_map[0] );
 							break;
 						case 4:
@@ -541,6 +559,26 @@ void update_enemies() {
 						default:
 							break;
 					}
+					break;
+				case ENEMY_TENTACLE_4:
+					switch( enemies[i].anim_step % 40 ) {
+						case 0:
+							draw_enemy( enemies[i].x, enemies[i].y, tentacle_4_map[0] );
+							break;
+						case 20:
+							draw_enemy( enemies[i].x, enemies[i].y, tentacle_4_map[1] );
+							break;
+					}
+					break;
+				case ENEMY_TENTACLE_6:
+					switch( enemies[i].anim_step % 40 ) {
+						case 10:
+							draw_enemy( enemies[i].x, enemies[i].y, tentacle_6_map[0] );
+							break;
+						case 30:
+							draw_enemy( enemies[i].x, enemies[i].y, tentacle_6_map[1] );
+							break;
+					}					
 					break;
 				case ENEMY_EXP_2X2:
 					switch( enemies[i].anim_step % 30 ) {
@@ -557,7 +595,6 @@ void update_enemies() {
 						default:
 							break;
 					}
-					enemies[i].anim_step++;
 					break;
 				case ENEMY_EXP_3X2:
 					switch( enemies[i].anim_step % 30 ) {
@@ -575,11 +612,11 @@ void update_enemies() {
 							clear_enemy(i);
 							break;
 					}
-					enemies[i].anim_step++;
 					break;
 				default:
 					break;
 			}
+			enemies[i].anim_step++;
 		}
 	}
 }
