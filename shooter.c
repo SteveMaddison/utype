@@ -36,8 +36,7 @@ typedef enum {
 	ENEMY_NONE,
 	ENEMY_MINE,
 	ENEMY_SPINNER,
-	ENEMY_TENTACLE_4,
-	ENEMY_TENTACLE_6,
+	ENEMY_TENTACLE,
 
 	ENEMY_EXP_2X2,
 	ENEMY_EXP_3X2,
@@ -111,15 +110,10 @@ char spinner_map[4][8] PROGMEM = {
 			93,94,95 }
 };
 
-char tentacle_4_map[2][6] PROGMEM = {
+char tentacle_map[2][6] PROGMEM = {
 	{ 4,1,	50,51,50,51 },
 	{ 4,1,	51,50,51,50 }
 };
-char tentacle_6_map[2][8] PROGMEM = {
-	{ 6,1,	51,50,51,50,51,50 },
-	{ 6,1,	50,51,50,51,50,51 }
-};
-
 
 // Collision detection bitmaps for tiles.
 // For each tile, determine which quadrants are solid.
@@ -518,7 +512,7 @@ void update_enemies() {
 		if( enemies[i].x < 0 ) {
 			enemies[i].x = VRAM_TILES_H - 1;
 		}
-		if( enemies[i].x >= level_vram_column-3 && enemies[i].x <= level_vram_column-1 ) {
+		if( enemies[i].x == level_vram_column-3 ) {
 			clear_enemy( i );
 		}
 		else {
@@ -560,25 +554,15 @@ void update_enemies() {
 							break;
 					}
 					break;
-				case ENEMY_TENTACLE_4:
+				case ENEMY_TENTACLE:
 					switch( enemies[i].anim_step % 40 ) {
 						case 0:
-							draw_enemy( enemies[i].x, enemies[i].y, tentacle_4_map[0] );
+							draw_enemy( enemies[i].x, enemies[i].y, tentacle_map[0+(i%2)] );
 							break;
 						case 20:
-							draw_enemy( enemies[i].x, enemies[i].y, tentacle_4_map[1] );
+							draw_enemy( enemies[i].x, enemies[i].y, tentacle_map[1-(i%2)] );
 							break;
 					}
-					break;
-				case ENEMY_TENTACLE_6:
-					switch( enemies[i].anim_step % 40 ) {
-						case 10:
-							draw_enemy( enemies[i].x, enemies[i].y, tentacle_6_map[0] );
-							break;
-						case 30:
-							draw_enemy( enemies[i].x, enemies[i].y, tentacle_6_map[1] );
-							break;
-					}					
 					break;
 				case ENEMY_EXP_2X2:
 					switch( enemies[i].anim_step % 30 ) {
