@@ -30,8 +30,30 @@ void SetScrolling(char sx,char sy);
 #include "data/tiles1.inc"
 #include "data/overlay.inc"
 #include "data/tiles2.inc"
-
 #include "data/sprites.inc"
+
+typedef enum {
+	ENEMY_NONE,
+	ENEMY_MINE,
+	ENEMY_SPINNER,
+	ENEMY_EXP_2X2,
+	ENEMY_EXP_3X2,
+	ENEMY_COUNT
+} enemy_id_t;
+
+typedef struct {
+	char x;
+	char y;
+	enemy_id_t id;
+} enemy_def_t;
+
+typedef struct {
+	char x;
+	char y;
+	enemy_id_t id;
+	char hp;
+	char anim_step;
+} enemy_t;
 
 #include "data/level1.inc"
 #include "data/level2.inc"
@@ -166,37 +188,6 @@ typedef struct {
 #define SPRITE_WHOOSH (SPRITE_BULLET1+MAX_BULLETS)
 
 #define MAX_LIVES 9
-
-typedef enum {
-	ENEMY_NONE,
-	ENEMY_MINE,
-	ENEMY_SPINNER,
-	ENEMY_EXP_2X2,
-	ENEMY_EXP_3X2,
-	ENEMY_COUNT
-} enemy_id_t;
-
-typedef struct {
-	char x;
-	char y;
-	enemy_id_t id;
-} enemy_def_t;
-
-typedef struct {
-	char x;
-	char y;
-	enemy_id_t id;
-	char hp;
-	char anim_step;
-} enemy_t;
-
-enemy_def_t enemies1[] PROGMEM = {
-	{ 20, 4, ENEMY_MINE },
-	{ 36, 12, ENEMY_SPINNER },
-	{ 38, 10, ENEMY_SPINNER },
-	{ 40, 8, ENEMY_SPINNER },
-	{ 0, 0, ENEMY_NONE }
-};
 
 char enemy_hp[ENEMY_COUNT] PROGMEM = {
 	0,
@@ -825,7 +816,7 @@ void start_level( int level ){
 	frame = 0;
 
 	clear_enemies();
-	enemy_pos = enemies1;
+	enemy_pos = level1_enemies;
 	clear_sprites();
 	SetTileTable(tiles1);
 	SetSpriteVisibility(true);

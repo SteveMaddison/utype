@@ -16,6 +16,34 @@
 
 use strict;
 
+my %enemy_tile = (
+	# Mine
+	30 => 1, 31 => 1,
+	46 => 1, 47 => 1,
+	62 => 1,	
+
+	# Spinner
+	68 => 1, 69 => 1, 70 => 1,
+	84 => 1, 85 => 1, 86 => 1,
+
+	71 => 1, 72 => 1, 73 => 1,
+	87 => 1, 88 => 1, 89 => 1,
+
+	74 => 1, 75 => 1, 76 => 1,
+	90 => 1, 91 => 1, 92 => 1,
+
+	77 => 1, 78 => 1, 79 => 1,
+	93 => 1, 94 => 1, 95 => 1
+);
+my %enemy_top_left = (
+	30 => 'ENEMY_MINE',
+	68 => 'ENEMY_SPINNER',
+	71 => 'ENEMY_SPINNER',
+	74 => 'ENEMY_SPINNER',
+	77 => 'ENEMY_SPINNER'
+);
+my @enemy_list = ();
+
 my $width = 0;
 my $height = 0;
 my @rowdata;
@@ -66,7 +94,16 @@ for( my $x = 0 ; $x < $width ; $x++ ) {
 	my $same = 1;
 	for( my $y = 0 ; $y < $height ; $y++ ) {
 		if( $rowdata[$y] =~ s/^(\d+),?// ) {
-			$coldata[$y] = $1 - 1;
+			$coldata[$y] = $1 - 1; # Tiled IDs start at 1...
+
+			my $enemy_id = $enemy_top_left{ $coldata[$y] };
+			if( defined $enemy_id ) {
+				push( @enemy_list, "$x, $y, $enemy_id" );
+			}
+			if( exists $enemy_tile{ $coldata[$y] } ) {
+				$coldata[$y] = 0;
+			}
+
 			if( !@prev_coldata || @prev_coldata > 0 && $coldata[$y] != $prev_coldata[$y] ) {
 				$same = 0;
 			}
@@ -133,4 +170,17 @@ print "// Original map size   = ", $width * $height, " bytes\n";
 print "// Compressed map size = ", $bytes, " bytes\n";
 print "// Compression ratio   = ", int( ($bytes/($width*$height)*100) + 0.5 ), "%\n";
 print "\n";
+
+print "// Enemy list:\n";
+print "enemy_def_t ${name}_enemies[] PROGMEM = {\n";
+for( my $i = 0 ; $i < $#enemy_list ; $i++ ) {
+	print "\t{ $enemy_list[$i] }";
+	if( $i != $#enemy_list - 1 ) {
+		print ",\n"
+	}
+	else {
+		print "\n";
+	}
+}
+print "};\n\n";
 
