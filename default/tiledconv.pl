@@ -35,6 +35,10 @@ my %enemy_tile = (
 	77 => 1, 78 => 1, 79 => 1,
 	93 => 1, 94 => 1, 95 => 1,
 
+	# Eyeball
+	64 => 1, 65 => 1, 66 => 1, 67 => 1,
+	80 => 1, 81 => 1, 82 => 1, 83 => 1,
+
 	# Tentacles
 	50 => 1, 51 => 1
 );
@@ -44,6 +48,8 @@ my %enemy_top_left = (
 	71 => 'ENEMY_SPINNER',
 	74 => 'ENEMY_SPINNER',
 	77 => 'ENEMY_SPINNER',
+	64 => 'ENEMY_EYEBALL',
+	66 => 'ENEMY_EYEBALL',
 	50 => 'ENEMY_TENTACLE',
 	51 => 'ENEMY_TENTACLE',
 );
