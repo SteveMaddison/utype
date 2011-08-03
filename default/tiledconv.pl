@@ -40,18 +40,23 @@ my %enemy_tile = (
 	80 => 1, 81 => 1, 82 => 1, 83 => 1,
 
 	# Tentacles
-	50 => 1, 51 => 1
+	50 => 1, 51 => 1,
+
+	# Mortar
+	112 => 1, 113 => 1,
+	128 => 1, 129 => 1
 );
 my %enemy_top_left = (
-	30 => 'ENEMY_MINE',
-	68 => 'ENEMY_SPINNER',
-	71 => 'ENEMY_SPINNER',
-	74 => 'ENEMY_SPINNER',
-	77 => 'ENEMY_SPINNER',
-	64 => 'ENEMY_EYEBALL',
-	66 => 'ENEMY_EYEBALL',
-	50 => 'ENEMY_TENTACLE',
-	51 => 'ENEMY_TENTACLE',
+	30  => 'ENEMY_MINE',
+	68  => 'ENEMY_SPINNER',
+	71  => 'ENEMY_SPINNER',
+	74  => 'ENEMY_SPINNER',
+	77  => 'ENEMY_SPINNER',
+	64  => 'ENEMY_EYEBALL',
+	66  => 'ENEMY_EYEBALL',
+	50  => 'ENEMY_TENTACLE',
+	51  => 'ENEMY_TENTACLE',
+	112 => 'ENEMY_MORTAR_LAUNCHER'
 );
 my @enemy_list = ();
 

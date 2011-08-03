@@ -35,6 +35,8 @@ void SetScrolling(char sx,char sy);
 typedef enum {
 	ENEMY_NONE,
 	ENEMY_MINE,
+	ENEMY_MORTAR_LAUNCHER,
+	ENEMY_MORTAR,
 	ENEMY_SPINNER,
 	ENEMY_EYEBALL,
 	ENEMY_TENTACLE,
@@ -43,6 +45,28 @@ typedef enum {
 	ENEMY_EXP_3X2,
 	ENEMY_COUNT
 } enemy_id_t;
+
+#define MAX_ENEMIES 15
+#define HP_INFINITE -1
+char enemy_hp[ENEMY_COUNT] PROGMEM = {
+	0,
+	5,				// Mine
+	3,				// Mortar Launcher
+	HP_INFINITE,	// Mortar
+	3,				// Spinner
+	16,				// Eyeball
+	HP_INFINITE		// Tentacle
+};
+
+int enemy_score[ENEMY_COUNT] PROGMEM = {
+	0,
+	1000,	// Mine
+	1250,	// Mortar Launcher
+	0,
+	200,	// Spinner
+	2500,	// Eyeball
+	0		// Tentacle
+};
 
 typedef struct {
 	char x;
@@ -130,6 +154,13 @@ char tentacle_map[2][6] PROGMEM = {
 	{ 4,1,	51,50,51,50 }
 };
 
+char mortar_map[6] PROGMEM = {
+	2,2,	112,113,
+			128,129
+};
+#define MORTAR_TL	114
+#define MORTAR_BR	130
+
 // Collision detection bitmaps for tiles.
 // For each tile, determine which quadrants are solid.
 //  +---+---+
@@ -157,7 +188,12 @@ const unsigned char bg_col_map[] PROGMEM = {
 
 	0x0f, 0x0f, 0x0f, 0x0f, 0x00, 0x03, 0x0f, 0x01,   0x07, 0x0f, 0x05, 0x07, 0x0a, 0x03, 0x0f, 0x00,
 	0x0f, 0x0f, 0x0f, 0x0f, 0x00, 0x0c, 0x0f, 0x0f,   0x0d, 0x0f, 0x05, 0x0f, 0x0a, 0x0c, 0x0f, 0x00,
-	0x0f, 0x0f, 0x0f, 0x0f, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+	0x0f, 0x0f, 0x0f, 0x0f, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x01, 0x00, 0x08, 0x0f, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+
+	0x05, 0x0f, 0x01, 0x0f, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x0f, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x0f, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
 #define TITLE_SECONDS   10
@@ -211,24 +247,6 @@ typedef struct {
 #define WHOOSH_SPRITES  8
 
 #define MAX_LIVES 9
-#define MAX_ENEMIES 15
-
-#define HP_INFINITE -1
-char enemy_hp[ENEMY_COUNT] PROGMEM = {
-	0,
-	5,				// Mine
-	3,				// Spinner
-	16,				// Eyeball
-	HP_INFINITE		// Tentacle
-};
-
-int enemy_score[ENEMY_COUNT] PROGMEM = {
-	0,
-	1000,	// Mine
-	200,	// Spinner
-	2500,	// Eyeball
-	0		// Tentacle
-};
 
 // Globals
 unsigned int frame = 0;
@@ -576,6 +594,31 @@ void update_enemies() {
 							break;
 					}
 					break;
+				case ENEMY_MORTAR_LAUNCHER:
+					if( enemies[i].anim_step % 90 == 0 ) {
+						draw_enemy( enemies[i].x, enemies[i].y, mortar_map );
+						add_enemy( ENEMY_MORTAR, enemies[i].x-1, enemies[i].y-1 );
+					}
+					break;
+				case ENEMY_MORTAR:
+					switch( enemies[i].anim_step % 8 ) {
+						case 0:
+							SetTile( enemies[i].x, enemies[i].y, 0 );
+							if( --enemies[i].y < 0 || enemies[i].x == level_vram_column ) {
+								clear_enemy(i);
+							}
+							else {
+								if( --enemies[i].x < 0 ) {
+									enemies[i].x = VRAM_TILES_H - 1;
+								}
+								SetTile( enemies[i].x, enemies[i].y, MORTAR_BR );
+							}
+							break;
+						case 4:
+							SetTile( enemies[i].x, enemies[i].y, MORTAR_TL );
+							break;
+					}
+					break;
 				case ENEMY_SPINNER:
 					switch( enemies[i].anim_step % 16 ) {
 						case 0:
@@ -919,6 +962,7 @@ void check_enemy_hit( int x, int y, bullet_status_t b ) {
 			case ENEMY_NONE:
 				break;
 			case ENEMY_MINE:
+			case ENEMY_MORTAR_LAUNCHER:
 				if((x == enemies[i].x || x == enemies[i].x+1)
 				&& (y == enemies[i].y || y == enemies[i].y+1) ) {
 					hit = 1;
@@ -967,6 +1011,7 @@ void check_enemy_hit( int x, int y, bullet_status_t b ) {
 							draw_enemy( enemies[i].x+1, enemies[i].y-1, dead_eyeball_map );
 							// Fall through...
 						case ENEMY_MINE:
+						case ENEMY_MORTAR_LAUNCHER:
 							enemies[i].id = ENEMY_EXP_2X2;
 							enemies[i].anim_step = 0;
 							break;
