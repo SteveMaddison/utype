@@ -731,13 +731,13 @@ unsigned int col_check( int sprite, int *tile_x, int *tile_y ) {
 			return 0;
 		}
 		else {
-			*tile_x = ((Screen.scrollX + sprites[sprite].x) / 8) % VRAM_TILES_H;
+			int x = ((Screen.scrollX + sprites[sprite].x) / 8) % VRAM_TILES_H;
 			int offset_x = (Screen.scrollX + sprites[sprite].x) % 8;
-			*tile_y = sprites[sprite].y / 8;
+			int y = sprites[sprite].y / 8;
 			int offset_y = sprites[sprite].y % 8;
 
 			// This is the tile the top-left corner of the sprite occupies.
-			unsigned char *tile = &vram[0] + ((*tile_y) * VRAM_TILES_H) + (*tile_x);
+			unsigned char *tile = &vram[(y*VRAM_TILES_H) + x];
 			
 			// Build up a bitmap representing a 2x2 grid extending from the tile.
 			// +-----+-----+
@@ -747,11 +747,25 @@ unsigned int col_check( int sprite, int *tile_x, int *tile_y ) {
 			// | 7  6| 3  2|
 			// | 5  4| 1  0|
 			// +-----+-----+
-			unsigned int t = pgm_read_byte( &bg_col_map[(*tile    )-RAM_TILES_COUNT] ) << 12
-						   | pgm_read_byte( &bg_col_map[(*(tile+1))-RAM_TILES_COUNT] ) << 8;
-			if( *tile_y < LEVEL_TILES_Y )
-				t |= pgm_read_byte( &bg_col_map[(*(tile+VRAM_TILES_H  ))-RAM_TILES_COUNT] ) << 4
-				  |  pgm_read_byte( &bg_col_map[(*(tile+VRAM_TILES_H+1))-RAM_TILES_COUNT] );
+			unsigned int t = pgm_read_byte( &bg_col_map[(*tile)-RAM_TILES_COUNT]) << 12;
+			if( x == VRAM_TILES_H-1 ) {
+				t |= pgm_read_byte( &bg_col_map[(*(tile-VRAM_TILES_H-1))-RAM_TILES_COUNT] ) << 8;
+			}
+			else {
+				t |= pgm_read_byte( &bg_col_map[(*(tile+1))-RAM_TILES_COUNT] ) << 8;
+			}
+
+			// Fill bottom row?
+			if( *tile_y < LEVEL_TILES_Y-1 ) {
+				t |= pgm_read_byte( &bg_col_map[(*(tile+VRAM_TILES_H))-RAM_TILES_COUNT] ) << 4;
+				if( x == VRAM_TILES_H-1 ) {
+					t |= pgm_read_byte( &bg_col_map[(*(tile+1))-RAM_TILES_COUNT] );
+				}
+				else {
+					t |= pgm_read_byte( &bg_col_map[(*(tile+VRAM_TILES_H+1))-RAM_TILES_COUNT] );
+				}
+			}
+
 			// No chance of collision if all tiles are empty.
 			if( t == 0 ) {
 				return 0;
@@ -786,6 +800,8 @@ unsigned int col_check( int sprite, int *tile_x, int *tile_y ) {
 	
 			// Now just AND the bitmasks - a collision will produce > 0;
 			if( s & t ) {
+				*tile_x = x;
+				*tile_y = y;
 				return s & t;
 			}
 		}
