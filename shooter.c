@@ -56,6 +56,7 @@ typedef struct {
 	enemy_id_t id;
 	char hp;
 	int anim_step;
+	unsigned char whooshed;
 } enemy_t;
 
 #include "data/level1.inc"
@@ -172,7 +173,7 @@ typedef enum {
 #define SHIP_MIN_X 0
 #define SHIP_MAX_X ((SCREEN_TILES_H-3)*8)
 #define SHIP_MIN_Y 0
-#define SHIP_MAX_Y ((LEVEL_TILES_Y-2)*8)
+#define SHIP_MAX_Y (((LEVEL_TILES_Y-2)*8)-4)
 
 typedef enum {
 	STATUS_OK,
@@ -216,8 +217,8 @@ typedef struct {
 char enemy_hp[ENEMY_COUNT] PROGMEM = {
 	0,
 	5,				// Mine
-	1,				// Spinner
-	20,				// Eyeball
+	3,				// Spinner
+	16,				// Eyeball
 	HP_INFINITE		// Tentacle
 };
 
@@ -260,6 +261,7 @@ int add_enemy( enemy_id_t id, int x, int y ) {
 			enemies[i].x = x;
 			enemies[i].y = y;
 			enemies[i].hp = pgm_read_byte( &enemy_hp[id] );
+			enemies[i].whooshed = 0;
 			enemies[i].anim_step = 0;
 			return i;
 		}
@@ -443,6 +445,11 @@ void update_bullet( int b ) {
 	if( bullet[b].status != BULLET_FREE ) {
 		if( bullet[b].x >= SCREEN_TILES_H*8 ) {
 			set_bullet(b, BULLET_FREE);
+			if( bullet[b].status == BULLET_LARGE ) {
+				for( int i=0 ; i<MAX_ENEMIES ; i++ ) {
+					enemies[i].whooshed = 0;
+				}
+			}
 		}
 		else {
 			switch( bullet[b].status ) {
@@ -618,6 +625,7 @@ void update_enemies() {
 							// Fire!
 							fill_tiles( enemies[i].x-VRAM_TILES_H+5, enemies[i].y+1, VRAM_TILES_H-5, 1, 52 );
 							fill_tiles( enemies[i].x-VRAM_TILES_H+5, enemies[i].y+2, VRAM_TILES_H-5, 1, 53 );
+							if( Screen.scrollY == 0 ) Scroll( 0, -2 );
 							break;
 						case 545:
 						case 555:
@@ -634,6 +642,7 @@ void update_enemies() {
 							// Beam flash
 							fill_tiles( enemies[i].x-VRAM_TILES_H+5, enemies[i].y+1, VRAM_TILES_H-5, 1, 53 );
 							fill_tiles( enemies[i].x-VRAM_TILES_H+5, enemies[i].y+2, VRAM_TILES_H-5, 1, 52 );
+							SetScrolling( Screen.scrollX, 0 );
 							break;
 						case 660:
 							// Stop firing
@@ -849,7 +858,7 @@ unsigned int col_check( int sprite, int *tile_x, int *tile_y ) {
 			}
 
 			// Fill bottom row?
-			if( *tile_y < LEVEL_TILES_Y-1 ) {
+			if( y < LEVEL_TILES_Y-1 ) {
 				t |= pgm_read_byte( &bg_col_map[(*(tile+VRAM_TILES_H))-RAM_TILES_COUNT] ) << 4;
 				if( x == VRAM_TILES_H-1 ) {
 					t |= pgm_read_byte( &bg_col_map[(*(tile+1))-RAM_TILES_COUNT] );
@@ -901,7 +910,7 @@ unsigned int col_check( int sprite, int *tile_x, int *tile_y ) {
 		return 0;
 }
 
-void check_enemy_hit( int x, int y ) {
+void check_enemy_hit( int x, int y, bullet_status_t b ) {
 	int i;
 	char hit = 0;
 	
@@ -933,11 +942,27 @@ void check_enemy_hit( int x, int y ) {
 		}
 		if( hit ) {
 			if( enemies[i].hp != HP_INFINITE ) {
-				enemies[i].hp--;
-				if( enemies[i].hp == 0 ) {
+				switch( b ) {
+					case BULLET_SMALL:
+						enemies[i].hp--;
+						break;
+					case BULLET_MEDIUM:
+						enemies[i].hp -= 4;
+						break;
+					case BULLET_LARGE:
+						if( ! enemies[i].whooshed ) {
+							enemies[i].hp -= 8;
+							enemies[i].whooshed = 1;
+						}
+						break;
+					default:
+						break;
+				}
+				if( enemies[i].hp <= 0 ) {
 					score += pgm_read_word( &enemy_score[enemies[i].id] );
 					switch( enemies[i].id ) {
 						case ENEMY_EYEBALL:
+							fill_tiles( enemies[i].x-VRAM_TILES_H+5, enemies[i].y+1, VRAM_TILES_H-5, 2, 0 );
 							fill_tiles( enemies[i].x, enemies[i].y-1, 1, 4, 0 );
 							draw_enemy( enemies[i].x+1, enemies[i].y-1, dead_eyeball_map );
 							// Fall through...
@@ -959,18 +984,18 @@ void check_enemy_hit( int x, int y ) {
 	}
 }
 
-void check_colmap_hit( unsigned int col_map, int col_x, int col_y ) {
+void check_colmap_hit( unsigned int col_map, int col_x, int col_y, bullet_status_t b ) {
 	if( col_map & 0xf000 ) {
-		check_enemy_hit( col_x,   col_y );
+		check_enemy_hit( col_x, col_y, b );
 	}
 	if( col_map & 0x0f00 ) {
-		check_enemy_hit( col_x+1, col_y );
+		check_enemy_hit( col_x+1, col_y, b );
 	}
 	if( col_map & 0x00f0 ) {
-		check_enemy_hit( col_x,   col_y+1 );
+		check_enemy_hit( col_x, col_y+1, b );
 	}
 	if( col_map & 0x000f ) {
-		check_enemy_hit( col_x+1, col_y+1 );
+		check_enemy_hit( col_x+1, col_y+1, b );
 	}
 }
 
@@ -1102,12 +1127,12 @@ void start_level( int level ){
 					}
 					else if( i < SPRITE_BULLET1+MAX_BULLETS ) {
 						// Bullet hit something...
+						check_colmap_hit( col_map, col_x, col_y, bullet[i-SPRITE_BULLET1].status );
 						set_bullet( i-SPRITE_BULLET1, BULLET_FREE );
-						check_colmap_hit( col_map, col_x, col_y );
 					}
 					else if( i < SPRITE_WHOOSH+WHOOSH_SPRITES ) {
 						// Same as bullet, but don't erase the whoosh.
-						check_colmap_hit( col_map, col_x, col_y );
+						check_colmap_hit( col_map, col_x, col_y, BULLET_LARGE );
 					}
 				}
 			}
@@ -1122,6 +1147,8 @@ void start_level( int level ){
 
 		frame++;
 	}
+
+	if( Screen.scrollY != 0 ) SetScrolling( Screen.scrollX, 0 );
 	WaitVsync(60);
 	FadeOut(FADE_SPEED,true);
 	SetSpriteVisibility(false);
