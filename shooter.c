@@ -31,6 +31,7 @@ void SetScrolling(char sx,char sy);
 #include "data/overlay.inc"
 #include "data/tiles2.inc"
 #include "data/sprites.inc"
+#include "data/sfx.inc"
 
 typedef enum {
 	ENEMY_NONE,
@@ -427,15 +428,18 @@ void set_bullet( int b, bullet_status_t status ) {
 			sprites[SPRITE_BULLET1+b].tileIndex = 3;
 			break;
 		case BULLET_SMALL:
+			TriggerFx( SFX_FIRE, 0xff, true );
 			sprites[SPRITE_BULLET1+b].tileIndex = 2;
 			bullet[b].y++; // offset for small bullet sprite
 			bullet[b].y &= 0xfffe;
 			break;
 		case BULLET_MEDIUM:
+			TriggerFx( SFX_FIRE, 0xff, true );
 			sprites[SPRITE_BULLET1+b].tileIndex = 6;
 			bullet[b].y &= 0xfffe;
 			break;
 		case BULLET_LARGE:
+			TriggerFx( SFX_WHOOSH, 0xff, true );
 			bullet[b].y -= 4;
 			MapSprite(SPRITE_WHOOSH, whoosh_map);
 			sprites[SPRITE_BULLET1+b].tileIndex = 0;
@@ -974,6 +978,7 @@ void check_enemy_hit( int x, int y, bullet_status_t b ) {
 					hit = 1;
 				}
 				break;
+
 			case ENEMY_EYEBALL:
 				if((x == enemies[i].x || x == enemies[i].x+1)
 				&& (y == enemies[i].y || y == enemies[i].y+1)
@@ -1003,6 +1008,7 @@ void check_enemy_hit( int x, int y, bullet_status_t b ) {
 						break;
 				}
 				if( enemies[i].hp <= 0 ) {
+					TriggerFx( SFX_EXP_S, 0xff, true );
 					score += pgm_read_word( &enemy_score[enemies[i].id] );
 					switch( enemies[i].id ) {
 						case ENEMY_EYEBALL:
@@ -1111,6 +1117,9 @@ void start_level( int level ){
 					bullet_charge++;
 					if( bullet_charge > BULLET_CHARGE_MAX ) {
 						bullet_charge = BULLET_CHARGE_MAX;
+						if( frame % 16 == 0 ) {
+							TriggerFx( SFX_CHARGED, 0xff, true );
+						}
 					}
 					update_charge();
 				}
@@ -1137,11 +1146,15 @@ void start_level( int level ){
 			sprites[3].x = ship.x + 16; sprites[3].y = ship.y + 8;
 		}
 		else if( ship.status == STATUS_EXPLODING ) {
-			if( ship.anim_step == 16 )
+			if( ship.anim_step == 16 ) {
+				TriggerFx( SFX_EXP_L, 0xff, true );
 				MapSprite( 0, ship_explosion_map[0] );
+			}
 
-			if( ship.anim_step == 8 )
+			if( ship.anim_step == 8 ) {
+				TriggerFx( SFX_EXP_L, 0xff, true );
 				MapSprite( 0, ship_explosion_map[1] );
+			}
 			
 			if( ship.anim_step == 0 ) {
 				for( i=0 ; i<SPRITE_BULLET1 ; i++ ) {
@@ -1280,6 +1293,7 @@ void show_intro() {
 
 int main(){
 	SetSpritesTileTable(sprite_tiles);
+	InitMusicPlayer(patches);
 	while(1) {
 		Screen.overlayHeight=0;
 		SetScrolling(0,0);
