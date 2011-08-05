@@ -58,8 +58,9 @@ INCLUDES = -I"$(KERNEL_DIR)"
 
 ## Included data files
 DATA_FILES =  ../data/overlay.inc ../data/sprites.inc
-DATA_FILES += ../data/tiles1.inc ../data/level1.inc
-DATA_FILES += ../data/tiles2.inc ../data/level2.inc
+DATA_FILES += ../data/tiles1.inc ../data/tiles2.inc
+DATA_FILES += ../data/level1.inc ../data/level2.inc
+DATA_FILES += ../data/level3.inc ../data/level4.inc
 
 ## Build
 all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze
@@ -80,6 +81,12 @@ all: $(TARGET) $(GAME).hex $(GAME).eep $(GAME).lss $(GAME).uze
 	./tiledconv.pl $< > $@
 
 ../data/level2.inc: ../data/level2.tmx tiledconv.pl
+	./tiledconv.pl $< > $@
+
+../data/level3.inc: ../data/level3.tmx tiledconv.pl
+	./tiledconv.pl $< > $@
+
+../data/level4.inc: ../data/level4.tmx tiledconv.pl
 	./tiledconv.pl $< > $@
 
 ## Compile Kernel files
