@@ -271,7 +271,7 @@ int overlay_offset = 0;
 #define HIGH_SCORES 8
 #define MAX_SCORE 999999999
 char hi_name[HIGH_SCORES][4] = { "SAM\0","TOM\0","UZE\0","TUX\0","JIM\0","B*A\0","ABC\0","XYZ\0" };
-long hi_score[HIGH_SCORES]   = { 1000000, 900000, 800000, 700000, 600000, 500000, 400000, 100 };
+long hi_score[HIGH_SCORES]   = {  100000, 90000,  80000,  70000,  60000,  50000,  40000,  30000  };
 
 
 void set_tiles( int level ) {
@@ -800,15 +800,15 @@ char text_code( int offset ) {
 		return 'A' + offset-1;
 	}
 	else if ( offset >= 32 && offset <= 41 ) {
-		return '0' + offset-1;
+		return '0' + offset-32;
 	}
 	else {
 		switch( offset ) {
-			case '.': return 27;
-			case '!': return 28;
-			case '/': return 29;
-			case '?': return 30;
-			case '*': return 31;
+			case 27: return '.';
+			case 28: return '!';
+			case 29: return '/';
+			case 30: return '?';
+			case 31: return '*';
 			default: return ' ';
 		}
 	}
@@ -1325,11 +1325,11 @@ void game_over() {
 	ClearVram();
 
 	text_write((SCREEN_TILES_H-10)/2,23,"GAME  OVER",false);
-	FadeIn(FADE_SPEED*4,false);
+	FadeIn(FADE_SPEED*8,false);
 
 	for( int i=0 ; i < 88 ; i++ ) {
 		Scroll(0,1);
-		WaitVsync(2);
+		WaitVsync(1);
 	}
 
 	if( score > hi_score[HIGH_SCORES-1] ) {
