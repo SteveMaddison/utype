@@ -171,6 +171,14 @@ char mortar_map[6] PROGMEM = {
 #define MORTAR_TL	114
 #define MORTAR_BR	130
 
+char title_map[82] PROGMEM = {
+	16,5,	7,0,7,0, 6,6,6, 2,0,1, 1,6,2, 1,6,2,
+			7,0,7,0, 0,7,0, 7,0,7, 7,0,7, 7,0,7,
+			7,0,7,29,0,7,0, 3,6,4, 7,6,4, 7,6,4,
+			7,0,7,0, 0,7,0, 0,7,0, 7,0,0, 7,0,0,
+			3,6,4,0, 0,7,0, 0,7,0, 7,0,0, 3,6,4
+};
+
 // Collision detection bitmaps for tiles.
 // For each tile, determine which quadrants are solid.
 //  +---+---+
@@ -1361,6 +1369,9 @@ int show_title() {
 	FadeOut(FADE_SPEED,true);
 	ClearVram();
 	draw_starfield();
+
+	DrawMap2( (SCREEN_TILES_H-16)/2, 8, title_map );
+
 	text_write((SCREEN_TILES_H-20)/2,23,"c2011 STEVE MADDISON",false);	
 	FadeIn(FADE_SPEED,false);
 
