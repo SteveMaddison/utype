@@ -1301,7 +1301,7 @@ void level_intro( int level ) {
 
 	FadeIn( FADE_SPEED*8, false );
 	for( i=0 ; i < 280 ; i++ ) {
-		if( i == 200 ) {
+		if( i == 180 ) {
 			for( int j = SPRITE_BULLET1 ; j < SPRITE_BULLET1+6 ; j++ ) {
 				sprites[j].x += 4;
 			}
@@ -1541,13 +1541,13 @@ int main(){
 				while( play_level(level) ) {
 					level++;
 				}
-			} while( level < 5 && lives >= 0 );
+			} while( level < LEVELS+1 && lives >= 0 );
 
 			Screen.overlayHeight=0;
 			SetScrolling(0,0);
 			set_tiles( 0 );
 
-			if( level == 5 ) {
+			if( level == LEVELS+1 ) {
 				// Game completed.
 			}
 			else {
