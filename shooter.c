@@ -54,7 +54,7 @@ char enemy_hp[ENEMY_COUNT] PROGMEM = {
 	5,				// Mine
 	3,				// Mortar Launcher
 	HP_INFINITE,	// Mortar
-	3,				// Spinner
+	1,				// Spinner
 	16,				// Eyeball
 	HP_INFINITE		// Tentacle
 };
