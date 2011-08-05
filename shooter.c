@@ -88,6 +88,15 @@ typedef struct {
 #include "data/level2.inc"
 #include "data/level3.inc"
 #include "data/level4.inc"
+#define LEVELS 4
+
+char random_tiles[LEVELS+1][3] PROGMEM = {
+	{ 164+45, 164+46, 164+47 },
+	{ 164+45, 164+46, 164+47 },
+	{ 164+45, 164+46, 164+47 },
+	{ 45, 46, 47 },
+	{ 45, 46, 47 }
+};
 
 #define EXPLOSION_FRAMES_S 2
 const char ship_explosion_map[EXPLOSION_FRAMES_S][6] PROGMEM = {
@@ -194,7 +203,13 @@ const unsigned char bg_col_map[] PROGMEM = {
 
 	0x05, 0x0f, 0x01, 0x0f, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x0f, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x0f, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+	0x0f, 0x0f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+
+	// Overlay tiles...
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
 #define TITLE_SECONDS   10
@@ -305,6 +320,7 @@ void level_draw_column( void ) {
 	int y = 0;
 	int c = 0;
 	unsigned char *p = level_pos;
+	static int r = 0;
 
 	if( scroll_countdown )
 		return;
@@ -346,7 +362,15 @@ void level_draw_column( void ) {
 			unsigned char t = pgm_read_byte(p-1);
 			p++;
 			for( c=pgm_read_byte(p) ; c>0 ; c-- ) {
-				SetTile(level_vram_column,y,t);
+				if( t == 0 && r == 0 ) {
+					// Random background filler
+					SetTile(level_vram_column,y,pgm_read_byte(&random_tiles[(int)level][random()%3]));
+					r = random()%VRAM_TILES_H;
+				}
+				else {
+					SetTile(level_vram_column,y,t);
+					r--;
+				}
 				y++;
 			}
 			p++;
@@ -380,23 +404,14 @@ void level_draw_column( void ) {
 }
 
 void level_load( unsigned char *level_data ) {
-	int x = 0;
-
 	// Reset our level housekeeping.
 	level_pos = level_data;
-	level_vram_column = 0;
+	level_vram_column = ((Screen.scrollX/8) + VRAM_TILES_H)%VRAM_TILES_H;
 	level_column = 0;
 	level_col_repeat = 0;
 	level_prev_column = NULL;
 	scroll_countdown = 0;
 	scroll_speed = 5;
-	ClearVram();
-	SetScrolling(0,0);
-
-	// Draw in the first screen-full of columns.
-	for( x=0 ; x<VRAM_TILES_H ; x++ ) {
-		level_draw_column();
-	}
 }
 
 void scroll( void ) {
@@ -1094,30 +1109,6 @@ bool play_level( int level ){
 	unsigned int col_map;
 	int col_x, col_y;
 
-	bullet_charge = 0;
-	frame = 0;
-
-	clear_enemies();
-	enemy_pos = level1_enemies;
-	clear_sprites();
-	SetTileTable(tiles1);
-	SetSpriteVisibility(true);
-	SetScrolling(0,0);
-	level_load( (unsigned char*)level1_map );
-
-	sprites[0].tileIndex = 1;
-	sprites[1].tileIndex = 0x09;
-	sprites[2].tileIndex = 0x0a;
-	sprites[3].tileIndex = 0x0b;
-
-	ship.x = 16;
-	ship.y = SHIP_MAX_Y/2;
-	ship.speed = 1;
-	ship.status = STATUS_OK;
-	
-	init_overlay();
-
-	FadeIn(FADE_SPEED,false);
 	while( alive && !complete ) {
 		unsigned int buttons = ReadJoypad(0);
 
@@ -1256,8 +1247,100 @@ void draw_starfield( void ) {
 		SetTile(
 			random()%SCREEN_TILES_H,
 			random()%SCREEN_TILES_V,
-			(random()%3) + overlay_offset + 45);
+			pgm_read_byte(&random_tiles[(int)level][random()%3])
+		);
 	}
+}
+
+void level_intro( int level ) {
+	int i;
+
+	FadeOut(0,true);
+	ClearVram();
+
+	bullet_charge = 0;
+	frame = 0;
+	clear_enemies();
+	enemy_pos = level1_enemies;
+	clear_sprites();
+	SetTileTable(tiles1);
+	SetSpriteVisibility(true);
+	SetScrolling(0,0);
+	level_load( (unsigned char*)level1_map );
+
+	sprites[0].tileIndex = 1;
+	sprites[1].tileIndex = 0x09;
+	sprites[2].tileIndex = 0x0a;
+	sprites[3].tileIndex = 0x0b;
+
+	ship.x = -24;
+	ship.y = SHIP_MAX_Y/2;
+	ship.speed = 1;
+	ship.status = STATUS_OK;
+
+	sprites[0].x = ship.x;      sprites[0].y = ship.y;
+	sprites[1].x = ship.x;      sprites[1].y = ship.y + 8;
+	sprites[2].x = ship.x + 8;  sprites[2].y = ship.y + 8;
+	sprites[3].x = ship.x + 16; sprites[3].y = ship.y + 8;
+
+	draw_starfield();
+	init_overlay();
+
+	SetSpritesTileTable(overlay_tiles);
+	sprites[SPRITE_BULLET1+0].tileIndex = 19; // S
+	sprites[SPRITE_BULLET1+1].tileIndex = 20; // T
+	sprites[SPRITE_BULLET1+2].tileIndex =  1; // A
+	sprites[SPRITE_BULLET1+3].tileIndex =  7; // G
+	sprites[SPRITE_BULLET1+4].tileIndex =  5; // E
+	sprites[SPRITE_BULLET1+5].tileIndex =  32 + level; // Number
+	for( i = SPRITE_BULLET1 ; i < SPRITE_BULLET1+6 ; i++ ) {
+		sprites[i].x = (SCREEN_TILES_H*8/2) - 24 + ((i-SPRITE_BULLET1)*8);
+		sprites[i].y = (SCREEN_TILES_V*8/2) - 28;
+	}
+	sprites[SPRITE_BULLET1+5].x += 8;
+
+	FadeIn( FADE_SPEED*8, false );
+	for( i=0 ; i < 280 ; i++ ) {
+		if( i == 200 ) {
+			for( int j = SPRITE_BULLET1 ; j < SPRITE_BULLET1+6 ; j++ ) {
+				sprites[j].x += 4;
+			}
+			sprites[SPRITE_BULLET1+5].x -= 8;
+			sprites[SPRITE_BULLET1+3].tileIndex = 18; // R
+			sprites[SPRITE_BULLET1+4].tileIndex = 20; // T
+			sprites[SPRITE_BULLET1+5].tileIndex = 28; // !
+		}
+		if( i == 240 ) {
+			for( int j = SPRITE_BULLET1 ; j < SPRITE_BULLET1+6 ; j++ ) {
+				sprites[j].tileIndex = 0;
+			}
+			SetSpritesTileTable(sprite_tiles);
+		}
+
+		if( i > 240 ) {
+			ship.x++;
+			sprites[0].x = ship.x;
+			sprites[1].x = ship.x;
+			sprites[2].x = ship.x + 8;
+			sprites[3].x = ship.x + 16;
+			if( i%scroll_speed == 0 ) Scroll(1,0);
+			WaitVsync(1);
+		}
+		else if( i > 220 ) {
+			Scroll(1,0);
+			WaitVsync(scroll_speed/2);
+		}
+		else if( i > 200 ) {
+			Scroll(2,0);
+			WaitVsync(scroll_speed/2);
+		}
+		else {
+			Scroll(4,0);
+			WaitVsync(1);
+		}
+	}
+
+	level_load( (unsigned char*)level1_map );
 }
 
 int wait_start( int delay ) {
@@ -1440,7 +1523,6 @@ int show_attract() {
 }
 
 int main(){
-	SetSpritesTileTable(sprite_tiles);
 	InitMusicPlayer(patches);
 	while(1) {
 		Screen.overlayHeight=0;
@@ -1454,11 +1536,12 @@ int main(){
 			score = 0;
 			lives = 0;
 
-			while( level < 5 && lives >= 0 ) {
+			do {
+				level_intro( level );
 				while( play_level(level) ) {
 					level++;
 				}
-			}
+			} while( level < 5 && lives >= 0 );
 
 			Screen.overlayHeight=0;
 			SetScrolling(0,0);
