@@ -278,7 +278,7 @@ ship_t ship;
 bullet_t bullet[MAX_BULLETS];
 char bullet_charge = 0;
 char level = 0;
-long score = 0;
+unsigned long score = 0;
 char lives = 0;
 unsigned char *level_pos = NULL;
 unsigned char *level_prev_column = NULL;
@@ -293,8 +293,8 @@ int overlay_offset = 0;
 
 #define HIGH_SCORES 8
 #define MAX_SCORE 999999999
-char hi_name[HIGH_SCORES][4] = { "SAM\0","TOM\0","UZE\0","TUX\0","JIM\0","B*A\0","ABC\0","XYZ\0" };
-long hi_score[HIGH_SCORES]   = {  100000, 90000,  80000,  70000,  60000,  50000,  40000,  30000  };
+char hi_name[HIGH_SCORES][4]        = { "SAM\0","TOM\0","UZE\0","TUX\0","JIM\0","B*A\0","ABC\0","XYZ\0" };
+unsigned long hi_score[HIGH_SCORES] = {  100000, 90000,  80000,  70000,  60000,  50000,  40000,  30000  };
 
 
 void set_tiles( int level ) {
@@ -373,7 +373,7 @@ void level_draw_column( void ) {
 				if( t == 0 && r == 0 ) {
 					// Random background filler
 					SetTile(level_vram_column,y,pgm_read_byte(&random_tiles[(int)level][random()%3]));
-					r = random()%VRAM_TILES_H;
+					r = (random()%VRAM_TILES_H) + 1;
 				}
 				else {
 					SetTile(level_vram_column,y,t);
@@ -549,35 +549,39 @@ void update_bullet( int b ) {
 }
 
 void fill_tiles( int x, int y, int width, int height, unsigned char t ) {
-	int xx,yy,rx;
-/*
-	for( yy=0 ; yy<height ; yy++ ) {	
-		for( xx=0 ; xx<width ; xx++ ) {
-			vram[((y+yy)*VRAM_TILES_H)+((xx+x)%VRAM_TILES_H)]=t+RAM_TILES_COUNT;
-		}
-	}
-*/
+	int xx,yy,p;
 
-	for( xx=0 ; xx<width ; xx++ ) {
-		rx = (x+xx)%VRAM_TILES_H;
-		if( rx == 0 && xx > 0 ) {
-			y--;
-		}
-		for( yy=0 ; yy<height ; yy++ ) {
-			vram[((y+yy)*VRAM_TILES_H)+rx]=t+RAM_TILES_COUNT;
+	for( yy=0 ; yy<height ; yy++ ) {
+		p = ((y+yy)*VRAM_TILES_H) + x;
+		for( xx=0 ; xx<width ; xx++ ) {
+			vram[p] = t+RAM_TILES_COUNT;
+			p++;
+			if( p % VRAM_TILES_H == 0 ) {
+				p -= VRAM_TILES_H;
+			}
 		}
 	}
 }
 
 void clear_enemy( int e ) {
 	switch( enemies[e].id ) {
+		// 1x1
+		case ENEMY_MORTAR:
+			SetTile( enemies[e].x, enemies[e].y, 0 );
+			break;
+		// 2x2
 		case ENEMY_MINE:
+		case ENEMY_MORTAR_LAUNCHER:
 		case ENEMY_EXP_2X2:
 			fill_tiles( enemies[e].x, enemies[e].y, 2, 2, 0 );
 			break;
-		case ENEMY_SPINNER:
+		// 3x2
 		case ENEMY_EXP_3X2:
 			fill_tiles( enemies[e].x, enemies[e].y, 3, 2, 0 );
+			break;
+		// 4x2
+		case ENEMY_SPINNER:
+			fill_tiles( enemies[e].x, enemies[e].y, 4, 2, 0 );		
 			break;
 		default:
 			break;
@@ -596,15 +600,22 @@ void clear_enemies() {
 }
 
 void draw_enemy( char x, char y, const char *map ) {
-// This is basically DrawMap2() with wrapping and transparency.
-	unsigned char i;
-	unsigned char mapWidth=pgm_read_byte(&(map[0]));
-	unsigned char mapHeight=pgm_read_byte(&(map[1]));
+	unsigned char width = pgm_read_byte(map);
+	unsigned char height = pgm_read_byte(map+1);
+	char *t = (char*)map+2;
+	int xx,yy,p;
 
-	for(int dy=0;dy<mapHeight;dy++){
-		for(int dx=0;dx<mapWidth;dx++){			
-			if(( i=pgm_read_byte(&(map[(dy*mapWidth)+dx+2])) ))
-				vram[((y+dy)*VRAM_TILES_H)+((x+dx)%VRAM_TILES_H)]=(i + RAM_TILES_COUNT) ;
+	for( yy=0 ; yy<height ; yy++ ) {
+		p = ((y+yy)*VRAM_TILES_H) + x;
+		for( xx=0 ; xx<width ; xx++ ) {
+			if( pgm_read_byte(t) != 0 ) {
+				vram[p] = pgm_read_byte(t)+RAM_TILES_COUNT;
+			}
+			t++;
+			p++;
+			if( p % VRAM_TILES_H == 0 ) {
+				p -= VRAM_TILES_H;
+			}
 		}
 	}
 }
@@ -616,7 +627,12 @@ void update_enemies() {
 		if( enemies[i].x < 0 ) {
 			enemies[i].x = VRAM_TILES_H - 1;
 		}
-		if( enemies[i].x == level_vram_column-3 ) {
+		if( enemies[i].x >= VRAM_TILES_H ) {
+			enemies[i].x = 0;
+		}
+		if( enemies[i].x == level_vram_column-3
+		||  enemies[i].y < 0 
+		||  enemies[i].y >= VRAM_TILES_V ) {
 			clear_enemy( i );
 		}
 		else {
@@ -644,30 +660,22 @@ void update_enemies() {
 				case ENEMY_MORTAR:
 					switch( enemies[i].anim_step % 8 ) {
 						case 0:
-							SetTile( enemies[i].x, enemies[i].y, 0 );
-							if( --enemies[i].y < 0 || enemies[i].x == level_vram_column ) {
-								clear_enemy(i);
-							}
-							else {
-								if( --enemies[i].x < 0 ) {
-									enemies[i].x = VRAM_TILES_H - 1;
-								}
-								SetTile( enemies[i].x, enemies[i].y, MORTAR_BR );
-							}
+							SetTile( enemies[i].x, enemies[i].y, MORTAR_BR );
 							break;
 						case 4:
 							SetTile( enemies[i].x, enemies[i].y, MORTAR_TL );
+							break;
+						case 7:
+							SetTile( enemies[i].x, enemies[i].y, 0 );
+							enemies[i].x--;
+							enemies[i].y--;
 							break;
 					}
 					break;
 				case ENEMY_SPINNER:
 					switch( enemies[i].anim_step % 16 ) {
 						case 0:
-							fill_tiles( enemies[i].x+2, enemies[i].y, 1, 2, 0 );
-							enemies[i].x--;
-							if( enemies[i].x < 0 ) {
-								enemies[i].x = VRAM_TILES_H - 1;
-							}
+							fill_tiles( enemies[i].x, enemies[i].y, 4, 2, 0 );
 							draw_enemy( enemies[i].x, enemies[i].y, spinner_map[0] );
 							break;
 						case 4:
@@ -678,6 +686,9 @@ void update_enemies() {
 							break;
 						case 12:
 							draw_enemy( enemies[i].x, enemies[i].y, spinner_map[3] );
+							break;
+						case 15:
+							enemies[i].x--;
 							break;
 						default:
 							break;
@@ -734,7 +745,6 @@ void update_enemies() {
 							break;
 						case 780:
 							// Loop
-							//draw_enemy( enemies[i].x, enemies[i].y, eyeball_map[0] );
 							enemies[i].anim_step = -1;
 							break;
 					}
@@ -813,7 +823,13 @@ void text_write( char x, char y, const char *text, bool overlay ) {
 				default: t = 0; // blank
 			}
 		}
-		SetTile(x++, y, t + overlay_offset + (overlay ? RAM_TILES_COUNT : 0 ) );
+		if( overlay ) {
+			vram[(VRAM_TILES_H*(VRAM_TILES_V+y))+x] = t + overlay_offset + RAM_TILES_COUNT;
+			x++;
+		}
+		else {
+			SetTile(x++, y, t + overlay_offset + (overlay ? RAM_TILES_COUNT : 0 ) );
+		}
 		p++;
 	}
 }
@@ -890,7 +906,7 @@ void update_charge( void ) {
 		else if( i == 9 )
 			offset++;		
 		
-		vram[(VRAM_TILES_H*VRAM_TILES_V)+i+9] = overlay_offset + RAM_TILES_COUNT + offset;
+		vram[(VRAM_TILES_H*VRAM_TILES_V)+VRAM_TILES_H+i+9] = overlay_offset + RAM_TILES_COUNT + offset;
 	}
 }
 
@@ -911,19 +927,14 @@ void init_overlay() {
 	}
 
 	// "Score" text
-	vram[(VRAM_TILES_H*VRAM_TILES_V)+1] = overlay_offset + RAM_TILES_COUNT + 54;
-	vram[(VRAM_TILES_H*VRAM_TILES_V)+2] = overlay_offset + RAM_TILES_COUNT + 55;
-	vram[(VRAM_TILES_H*VRAM_TILES_V)+3] = overlay_offset + RAM_TILES_COUNT + 56;
+	text_write( 1, 0, "SCORE", true );
 
 	// "Charge" text
-	vram[(VRAM_TILES_H*(VRAM_TILES_V+1))+12] = overlay_offset + RAM_TILES_COUNT + 57;
-	vram[(VRAM_TILES_H*(VRAM_TILES_V+1))+13] = overlay_offset + RAM_TILES_COUNT + 58;
-	vram[(VRAM_TILES_H*(VRAM_TILES_V+1))+14] = overlay_offset + RAM_TILES_COUNT + 59;
-	vram[(VRAM_TILES_H*(VRAM_TILES_V+1))+15] = overlay_offset + RAM_TILES_COUNT + 60;
+	text_write( (SCREEN_TILES_H-6)/2, 0, "CHARGE", true );
 	
 	// Lives counter
-	vram[(VRAM_TILES_H*(VRAM_TILES_V+1))+24] = overlay_offset + RAM_TILES_COUNT + 61;
-	vram[(VRAM_TILES_H*(VRAM_TILES_V+1))+25] = overlay_offset + RAM_TILES_COUNT + 62;
+	vram[(VRAM_TILES_H*(VRAM_TILES_V+1))+24] = overlay_offset + RAM_TILES_COUNT + 62;
+	vram[(VRAM_TILES_H*(VRAM_TILES_V+1))+25] = overlay_offset + RAM_TILES_COUNT + 63;
 
 	update_score();
 	update_charge();
