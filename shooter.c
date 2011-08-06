@@ -172,7 +172,7 @@ char mortar_map[6] PROGMEM = {
 #define MORTAR_BR	130
 
 char title_map[82] PROGMEM = {
-	16,5,	7,0,7,0, 6,6,6, 2,0,1, 1,6,2, 1,6,2,
+	16,5,	7,0,7,0, 6,6,6, 2,0,1, 6,6,2, 1,6,2,
 			7,0,7,0, 0,7,0, 7,0,7, 7,0,7, 7,0,7,
 			7,0,7,29,0,7,0, 3,6,4, 7,6,4, 7,6,4,
 			7,0,7,0, 0,7,0, 0,7,0, 7,0,0, 7,0,0,
@@ -219,6 +219,16 @@ const unsigned char bg_col_map[] PROGMEM = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
+
+const char str_copyright[] PROGMEM     = "c2011 STEVE MADDISON";
+const char str_push_start[] PROGMEM    = "PUSH START";
+const char str_charge[] PROGMEM        = "CHARGE";
+const char str_score[] PROGMEM         = "SCORE";
+const char str_hi_scores[] PROGMEM     = "HI  SCORES";
+const char str_game_over[] PROGMEM     = "GAME  OVER";
+const char str_highest_score[] PROGMEM = "YOU BEAT THE HIGHEST SCORE!";
+const char str_high_score[] PROGMEM    = "YOU GOT A HIGH SCORE!";
+const char str_dot[] PROGMEM           = ".";
 
 #define TITLE_SECONDS   10
 #define HISCORE_SECONDS	10
@@ -802,18 +812,18 @@ void update_enemies() {
 }
 
 void text_write( char x, char y, const char *text, bool overlay ) {
-	char *p = (char*)text;
+	char *p = text;
 	unsigned char t = 0;
 
-	while( *p ) {
-		if ( *p >= 'A' && *p <= 'Z' ) {
-			t = *p - 'A' + 1;
+	while( pgm_read_byte(p) ) {
+		if ( pgm_read_byte(p) >= 'A' && pgm_read_byte(p) <= 'Z' ) {
+			t = pgm_read_byte(p) - 'A' + 1;
 		}
-		else if( *p >= '0' && *p <= '9' ) {
-			t = *p - '0' + 32;
+		else if( pgm_read_byte(p) >= '0' && pgm_read_byte(p) <= '9' ) {
+			t = pgm_read_byte(p) - '0' + 32;
 		}
 		else {
-			switch( *p ) {
+			switch( pgm_read_byte(p) ) {
 				case '.': t=27; break;
 				case '!': t=28; break;
 				case '/': t=29; break;
@@ -927,10 +937,10 @@ void init_overlay() {
 	}
 
 	// "Score" text
-	text_write( 1, 0, "SCORE", true );
+	text_write( 1, 0, str_score, true );
 
 	// "Charge" text
-	text_write( (SCREEN_TILES_H-6)/2, 0, "CHARGE", true );
+	text_write( (SCREEN_TILES_H-6)/2, 0, str_charge, true );
 	
 	// Lives counter
 	vram[(VRAM_TILES_H*(VRAM_TILES_V+1))+24] = overlay_offset + RAM_TILES_COUNT + 62;
@@ -1186,6 +1196,11 @@ bool play_level( int level ){
 			sprites[1].x = ship.x;      sprites[1].y = ship.y + 8;
 			sprites[2].x = ship.x + 8;  sprites[2].y = ship.y + 8;
 			sprites[3].x = ship.x + 16; sprites[3].y = ship.y + 8;
+			if( buttons & BTN_START ) {
+				while( ReadJoypad(0) != 0 );
+				while( !wait_start(1000) );
+				while( ReadJoypad(0) != 0 );
+			}
 		}
 		else if( ship.status == STATUS_EXPLODING ) {
 			if( ship.anim_step == 16 ) {
@@ -1383,14 +1398,14 @@ int show_title() {
 
 	DrawMap2( (SCREEN_TILES_H-16)/2, 8, title_map );
 
-	text_write((SCREEN_TILES_H-20)/2,23,"c2011 STEVE MADDISON",false);	
+	text_write((SCREEN_TILES_H-20)/2,23,str_copyright,false);	
 	FadeIn(FADE_SPEED,false);
 
 	for( i=0 ; i<TITLE_SECONDS ; i++ ) {
-		text_write((SCREEN_TILES_H-10)/2,19,"PUSH START",false);
+		text_write((SCREEN_TILES_H-10)/2,19,str_push_start,false);
 		if( wait_start(FPS/2) ) return 1;
 
-		text_write((SCREEN_TILES_H-10)/2,19,"          ",false);
+		fill_tiles((SCREEN_TILES_H-10)/2,19,10,1,0);
 		if( wait_start(FPS/2) ) return 1;
 	}
 	return 0;
@@ -1408,11 +1423,11 @@ int show_hi_scores() {
 		SetTile(i,3,overlay_offset+52);
 		SetTile(i,22,overlay_offset+52);
 	}
-	text_write((SCREEN_TILES_H-10)/2,HI_SCORE_TOP-4,"HI  SCORES",false);
+	text_write((SCREEN_TILES_H-10)/2,HI_SCORE_TOP-4,str_hi_scores,false);
 
 	for( i=0 ; i<HIGH_SCORES ; i++ ) {
 		text_write_number(6,HI_SCORE_TOP+i,i+1,ALIGN_RIGHT,false);
-		text_write(7,HI_SCORE_TOP+i,".",false);
+		text_write(7,HI_SCORE_TOP+i,str_dot,false);
 		text_write(9,HI_SCORE_TOP+i,hi_name[i],false);
 		text_write_number(21,HI_SCORE_TOP+i,hi_score[i],ALIGN_RIGHT,false);
 	}
@@ -1429,7 +1444,7 @@ void game_over() {
 
 	ClearVram();
 
-	text_write((SCREEN_TILES_H-10)/2,23,"GAME  OVER",false);
+	text_write((SCREEN_TILES_H-10)/2,23,str_game_over,false);
 	FadeIn(FADE_SPEED*8,false);
 
 	for( int i=0 ; i < 88 ; i++ ) {
@@ -1446,17 +1461,17 @@ void game_over() {
 			position--;
 		}
 		if( position == 0 ) {
-			text_write((SCREEN_TILES_H-26)/2,5,"YOU BEAT THE HIGHEST SCORE!",false);
+			text_write((SCREEN_TILES_H-26)/2,5,str_highest_score,false);
 		}
 		else {
-			text_write((SCREEN_TILES_H-20)/2,5,"YOU GOT A HIGH SCORE!",false);
+			text_write((SCREEN_TILES_H-20)/2,5,str_high_score,false);
 		}
 
 		hi_name[position][0] = '\0';
 		hi_score[position] = score;
 
 		text_write_number((SCREEN_TILES_H-6)/2,8,position+1,ALIGN_LEFT,false);
-		text_write(((SCREEN_TILES_H-6)/2)+1,8,".",false);
+		text_write(((SCREEN_TILES_H-6)/2)+1,8,str_dot,false);
 
 		while( name_pos < 4 ) {
 			unsigned int buttons = ReadJoypad(0);
@@ -1550,6 +1565,9 @@ int main(){
 		Screen.overlayHeight=0;
 		SetScrolling(0,0);
 		set_tiles( 0 );
+		ClearVram();
+//		while( ReadJoypad(0) == 0 );
+//		while( ReadJoypad(0) != 0 );
 
 		if( show_title() || show_attract() || show_hi_scores() ) {
 			// Start was pressed...
