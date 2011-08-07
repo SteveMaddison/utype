@@ -47,7 +47,7 @@ typedef enum {
 	ENEMY_COUNT
 } enemy_id_t;
 
-#define MAX_ENEMIES 15
+#define MAX_ENEMIES  9
 #define HP_INFINITE -1
 char enemy_hp[ENEMY_COUNT] PROGMEM = {
 	0,
@@ -310,6 +310,7 @@ int current_bullet;
 long old_score;
 unsigned int col_map;
 int col_x, col_y;
+char boss_enemies;
 
 #define HIGH_SCORES 8
 #define MAX_SCORE 999999999
@@ -338,6 +339,9 @@ int add_enemy( enemy_id_t id, int x, int y ) {
 			enemies[i].hp = pgm_read_byte( &enemy_hp[id] );
 			enemies[i].whooshed = 0;
 			enemies[i].anim_step = 0;
+			if( id == ENEMY_EYEBALL ) {
+				boss_enemies++;
+			}
 			return i;
 		}
 	}
@@ -1096,6 +1100,7 @@ void check_enemy_hit( int x, int y, bullet_status_t b ) {
 							fill_tiles( enemies[i].x-VRAM_TILES_H+5, enemies[i].y+1, VRAM_TILES_H-5, 2, 0 );
 							fill_tiles( enemies[i].x, enemies[i].y-1, 1, 4, 0 );
 							draw_enemy( enemies[i].x+1, enemies[i].y-1, dead_eyeball_map );
+							boss_enemies--;
 							// Fall through...
 						case ENEMY_MINE:
 						case ENEMY_MORTAR_LAUNCHER:
@@ -1150,6 +1155,7 @@ bool play_level( int level ){
 	complete = false;
 	current_bullet = -1;
 	old_score = score;
+	boss_enemies = 0;
 
 	while( alive && !complete ) {
 		unsigned int buttons = ReadJoypad(0);
@@ -1273,6 +1279,10 @@ bool play_level( int level ){
 		}
 
 		update_enemies();
+
+		if( scroll_speed == 0 && boss_enemies == 0 ) {
+			complete = true;
+		}
 
 		frame++;
 	}
@@ -1598,7 +1608,7 @@ int main(){
 				// Game completed.
 			}
 			else {
-				//game_over();
+				game_over();
 			}
 		}
 	}

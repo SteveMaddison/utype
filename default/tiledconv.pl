@@ -60,9 +60,11 @@ if( $name =~ /[12]/ ) {
 		# Tentacles
 		50 => 1, 51 => 1,
 
-		# Mortar
+		# Mortar Launcher
 		112 => 1, 113 => 1,
-		128 => 1, 129 => 1
+		128 => 1, 129 => 1,
+		# Mortar projectiles
+		114 => 1, 130 => 1
 	);
 	%enemy_top_left = (
 		30  => 'ENEMY_MINE',
