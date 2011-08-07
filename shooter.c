@@ -35,12 +35,16 @@ void SetScrolling(char sx,char sy);
 
 typedef enum {
 	ENEMY_NONE,
+	// Level 1...
 	ENEMY_MINE,
 	ENEMY_MORTAR_LAUNCHER,
 	ENEMY_MORTAR,
 	ENEMY_SPINNER,
 	ENEMY_EYEBALL,
 	ENEMY_TENTACLE,
+
+	// Level 3...
+	ENEMY_HORNET,
 
 	ENEMY_EXP_2X2,
 	ENEMY_EXP_3X2,
@@ -56,7 +60,9 @@ char enemy_hp[ENEMY_COUNT] PROGMEM = {
 	HP_INFINITE,	// Mortar
 	1,				// Spinner
 	16,				// Eyeball
-	HP_INFINITE		// Tentacle
+	HP_INFINITE,	// Tentacle
+	
+	3				// Hornet
 };
 
 int enemy_score[ENEMY_COUNT] PROGMEM = {
@@ -66,7 +72,9 @@ int enemy_score[ENEMY_COUNT] PROGMEM = {
 	0,
 	200,	// Spinner
 	2500,	// Eyeball
-	0		// Tentacle
+	0,		// Tentacle
+	
+	400		// Hornet
 };
 
 typedef struct {
@@ -184,6 +192,14 @@ char mortar_map[6] PROGMEM = {
 };
 #define MORTAR_TL	114
 #define MORTAR_BR	130
+
+char hornet_map[2][6] PROGMEM = {
+	{ 2,2,	101,102,
+			117,118 },
+	{ 2,2,	103,104,
+			119,120 }
+};
+
 
 char title_map[82] PROGMEM = {
 	16,5,	7,0,7,0, 6,6,6, 2,0,1, 6,6,2, 1,6,2,
@@ -588,6 +604,7 @@ void clear_enemy( int e ) {
 		// 2x2
 		case ENEMY_MINE:
 		case ENEMY_MORTAR_LAUNCHER:
+		case ENEMY_HORNET:
 		case ENEMY_EXP_2X2:
 			fill_tiles( enemies[e].x, enemies[e].y, 2, 2, 0 );
 			break;
@@ -776,6 +793,16 @@ void update_enemies() {
 							break;
 					}
 					break;
+				case ENEMY_HORNET:
+					switch( enemies[i].anim_step % 4 ) {
+						case 0:
+							draw_enemy( enemies[i].x, enemies[i].y, hornet_map[0] );
+							break;
+						case 2:
+							draw_enemy( enemies[i].x, enemies[i].y, hornet_map[1] );
+							break;
+					}
+					break;
 				case ENEMY_EXP_2X2:
 					switch( enemies[i].anim_step % 30 ) {
 						case 0:
@@ -959,6 +986,8 @@ void init_overlay() {
 
 unsigned int col_check( int sprite, int *tile_x, int *tile_y ) {
 	unsigned char smap = pgm_read_byte( &sprite_col_map[sprites[sprite].tileIndex] );
+
+	return 0;
 
 	if( smap==0 ) {
 		// If all empty, no chance of collision.

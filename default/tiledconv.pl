@@ -80,7 +80,18 @@ if( $name =~ /[12]/ ) {
 	);
 }
 else {
-
+	%enemy_tile = (
+		# Hornet
+		101 => 1, 102 => 1,
+		117 => 1, 118 => 1,
+		
+		103 => 1, 104 => 1,
+		119 => 1, 120 => 1,		
+	);	
+	%enemy_top_left = (
+		101 => 'ENEMY_HORNET',
+		103 => 'ENEMY_HORNET',
+	);
 }
 
 # Read in the whole file;
