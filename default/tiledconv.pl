@@ -16,50 +16,9 @@
 
 use strict;
 
-my %enemy_tile = (
-	# Mine
-	30 => 1, 31 => 1,
-	46 => 1, 47 => 1,
-	62 => 1,	
-
-	# Spinner
-	68 => 1, 69 => 1, 70 => 1,
-	84 => 1, 85 => 1, 86 => 1,
-
-	71 => 1, 72 => 1, 73 => 1,
-	87 => 1, 88 => 1, 89 => 1,
-
-	74 => 1, 75 => 1, 76 => 1,
-	90 => 1, 91 => 1, 92 => 1,
-
-	77 => 1, 78 => 1, 79 => 1,
-	93 => 1, 94 => 1, 95 => 1,
-
-	# Eyeball
-	64 => 1, 65 => 1, 66 => 1, 67 => 1,
-	80 => 1, 81 => 1, 82 => 1, 83 => 1,
-
-	# Tentacles
-	50 => 1, 51 => 1,
-
-	# Mortar
-	112 => 1, 113 => 1,
-	128 => 1, 129 => 1
-);
-my %enemy_top_left = (
-	30  => 'ENEMY_MINE',
-	68  => 'ENEMY_SPINNER',
-	71  => 'ENEMY_SPINNER',
-	74  => 'ENEMY_SPINNER',
-	77  => 'ENEMY_SPINNER',
-	64  => 'ENEMY_EYEBALL',
-	66  => 'ENEMY_EYEBALL',
-	50  => 'ENEMY_TENTACLE',
-	51  => 'ENEMY_TENTACLE',
-	112 => 'ENEMY_MORTAR_LAUNCHER'
-);
+my %enemy_tile = ();
+my %enemy_top_left = ();
 my @enemy_list = ();
-
 my $width = 0;
 my $height = 0;
 my @rowdata;
@@ -73,6 +32,54 @@ if( $name eq '' ) {
 
 $name =~ s/^.*\///;
 $name =~ s/\..*$//;
+
+if( $name =~ /[12]/ ) {
+	%enemy_tile = (
+		# Mine
+		30 => 1, 31 => 1,
+		46 => 1, 47 => 1,
+		62 => 1,	
+
+		# Spinner
+		68 => 1, 69 => 1, 70 => 1,
+		84 => 1, 85 => 1, 86 => 1,
+
+		71 => 1, 72 => 1, 73 => 1,
+		87 => 1, 88 => 1, 89 => 1,
+
+		74 => 1, 75 => 1, 76 => 1,
+		90 => 1, 91 => 1, 92 => 1,
+
+		77 => 1, 78 => 1, 79 => 1,
+		93 => 1, 94 => 1, 95 => 1,
+
+		# Eyeball
+		64 => 1, 65 => 1, 66 => 1, 67 => 1,
+		80 => 1, 81 => 1, 82 => 1, 83 => 1,
+
+		# Tentacles
+		50 => 1, 51 => 1,
+
+		# Mortar
+		112 => 1, 113 => 1,
+		128 => 1, 129 => 1
+	);
+	%enemy_top_left = (
+		30  => 'ENEMY_MINE',
+		68  => 'ENEMY_SPINNER',
+		71  => 'ENEMY_SPINNER',
+		74  => 'ENEMY_SPINNER',
+		77  => 'ENEMY_SPINNER',
+		64  => 'ENEMY_EYEBALL',
+		66  => 'ENEMY_EYEBALL',
+		50  => 'ENEMY_TENTACLE',
+		51  => 'ENEMY_TENTACLE',
+		112 => 'ENEMY_MORTAR_LAUNCHER'
+	);
+}
+else {
+
+}
 
 # Read in the whole file;
 while( my $line = <> ) {

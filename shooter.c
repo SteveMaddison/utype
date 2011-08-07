@@ -90,10 +90,24 @@ typedef struct {
 #include "data/level4.inc"
 #define LEVELS 4
 
+const unsigned char *level_data[LEVELS] PROGMEM = {
+	level1_map,
+	level2_map,
+	level3_map,
+	level4_map
+};
+
+const enemy_def_t *enemy_data[LEVELS] PROGMEM = {
+	level1_enemies,
+	level2_enemies,
+	level3_enemies,
+	level4_enemies
+};
+
 char random_tiles[LEVELS+1][3] PROGMEM = {
 	{ 164+45, 164+46, 164+47 },
 	{ 164+45, 164+46, 164+47 },
-	{ 164+45, 164+46, 164+47 },
+	{ 59, 60, 61 },
 	{ 45, 46, 47 },
 	{ 45, 46, 47 }
 };
@@ -220,16 +234,6 @@ const unsigned char bg_col_map[] PROGMEM = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
-const char str_copyright[] PROGMEM     = "c2011 STEVE MADDISON";
-const char str_push_start[] PROGMEM    = "PUSH START";
-const char str_charge[] PROGMEM        = "CHARGE";
-const char str_score[] PROGMEM         = "SCORE";
-const char str_hi_scores[] PROGMEM     = "HI  SCORES";
-const char str_game_over[] PROGMEM     = "GAME  OVER";
-const char str_highest_score[] PROGMEM = "YOU BEAT THE HIGHEST SCORE!";
-const char str_high_score[] PROGMEM    = "YOU GOT A HIGH SCORE!";
-const char str_dot[] PROGMEM           = ".";
-
 #define TITLE_SECONDS   10
 #define HISCORE_SECONDS	10
 #define ATTRACT_SECONDS 30
@@ -283,23 +287,29 @@ typedef struct {
 #define MAX_LIVES 9
 
 // Globals
-unsigned int frame = 0;
+unsigned int frame;
 ship_t ship;
 bullet_t bullet[MAX_BULLETS];
-char bullet_charge = 0;
-char level = 0;
-unsigned long score = 0;
-char lives = 0;
-unsigned char *level_pos = NULL;
-unsigned char *level_prev_column = NULL;
-char level_vram_column = 0;
-char level_col_repeat = 0;
-int level_column = 0;
-char scroll_speed = 0;
-char scroll_countdown = 0;
-enemy_def_t *enemy_pos = NULL;
+char bullet_charge;
+char level;
+unsigned long score;
+char lives;
+unsigned char *level_pos;
+unsigned char *level_prev_column;
+char level_vram_column;
+char level_col_repeat;
+int level_column;
+char scroll_speed;
+char scroll_countdown;
+enemy_def_t *enemy_pos;
 enemy_t enemies[MAX_ENEMIES];
-int overlay_offset = 0;
+int overlay_offset;
+bool alive;
+bool complete;
+int current_bullet;
+long old_score;
+unsigned int col_map;
+int col_x, col_y;
 
 #define HIGH_SCORES 8
 #define MAX_SCORE 999999999
@@ -361,6 +371,9 @@ void level_draw_column( void ) {
 					}
 					level_column++;
 					level_vram_column++;
+					if( level_vram_column >= VRAM_TILES_H ) {
+						level_vram_column = 0;
+					}
 				}
 				return;
 			}
@@ -419,17 +432,6 @@ void level_draw_column( void ) {
 	if( level_vram_column >= VRAM_TILES_H ) {
 		level_vram_column = 0;
 	}
-}
-
-void level_load( unsigned char *level_data ) {
-	// Reset our level housekeeping.
-	level_pos = level_data;
-	level_vram_column = ((Screen.scrollX/8) + VRAM_TILES_H)%VRAM_TILES_H;
-	level_column = 0;
-	level_col_repeat = 0;
-	level_prev_column = NULL;
-	scroll_countdown = 0;
-	scroll_speed = 5;
 }
 
 void scroll( void ) {
@@ -812,18 +814,18 @@ void update_enemies() {
 }
 
 void text_write( char x, char y, const char *text, bool overlay ) {
-	char *p = text;
+	char *p = (char*)text;
 	unsigned char t = 0;
-
-	while( pgm_read_byte(p) ) {
-		if ( pgm_read_byte(p) >= 'A' && pgm_read_byte(p) <= 'Z' ) {
-			t = pgm_read_byte(p) - 'A' + 1;
+	
+	while( *p ) {
+		if ( *p >= 'A' && *p <= 'Z' ) {
+			t = *p - 'A' + 1;
 		}
-		else if( pgm_read_byte(p) >= '0' && pgm_read_byte(p) <= '9' ) {
-			t = pgm_read_byte(p) - '0' + 32;
+		else if( *p >= '0' && *p <= '9' ) {
+			t = *p - '0' + 32;
 		}
 		else {
-			switch( pgm_read_byte(p) ) {
+			switch( *p ) {
 				case '.': t=27; break;
 				case '!': t=28; break;
 				case '/': t=29; break;
@@ -937,10 +939,10 @@ void init_overlay() {
 	}
 
 	// "Score" text
-	text_write( 1, 0, str_score, true );
+	text_write( 1, 0, "SCORE", true );
 
 	// "Charge" text
-	text_write( (SCREEN_TILES_H-6)/2, 0, str_charge, true );
+	text_write( (SCREEN_TILES_H-6)/2, 0, "CHARGE", true );
 	
 	// Lives counter
 	vram[(VRAM_TILES_H*(VRAM_TILES_V+1))+24] = overlay_offset + RAM_TILES_COUNT + 62;
@@ -952,88 +954,88 @@ void init_overlay() {
 }
 
 unsigned int col_check( int sprite, int *tile_x, int *tile_y ) {
-		unsigned char smap = pgm_read_byte( &sprite_col_map[sprites[sprite].tileIndex] );
+	unsigned char smap = pgm_read_byte( &sprite_col_map[sprites[sprite].tileIndex] );
 
-		if( smap==0 ) {
-			// If all empty, no chance of collision.
-			return 0;
+	if( smap==0 ) {
+		// If all empty, no chance of collision.
+		return 0;
+	}
+	else {
+		int x = ((Screen.scrollX + sprites[sprite].x) / 8) % VRAM_TILES_H;
+		int offset_x = (Screen.scrollX + sprites[sprite].x) % 8;
+		int y = sprites[sprite].y / 8;
+		int offset_y = sprites[sprite].y % 8;
+
+		// This is the tile the top-left corner of the sprite occupies.
+		unsigned char *tile = &vram[(y*VRAM_TILES_H) + x];
+		
+		// Build up a bitmap representing a 2x2 grid extending from the tile.
+		// +-----+-----+
+		// |15 14|11 10|
+		// |13 12| 9  8|
+		// +-----+-----+
+		// | 7  6| 3  2|
+		// | 5  4| 1  0|
+		// +-----+-----+
+		unsigned int t = pgm_read_byte( &bg_col_map[(*tile)-RAM_TILES_COUNT]) << 12;
+		if( x == VRAM_TILES_H-1 ) {
+			t |= pgm_read_byte( &bg_col_map[(*(tile-VRAM_TILES_H-1))-RAM_TILES_COUNT] ) << 8;
 		}
 		else {
-			int x = ((Screen.scrollX + sprites[sprite].x) / 8) % VRAM_TILES_H;
-			int offset_x = (Screen.scrollX + sprites[sprite].x) % 8;
-			int y = sprites[sprite].y / 8;
-			int offset_y = sprites[sprite].y % 8;
+			t |= pgm_read_byte( &bg_col_map[(*(tile+1))-RAM_TILES_COUNT] ) << 8;
+		}
 
-			// This is the tile the top-left corner of the sprite occupies.
-			unsigned char *tile = &vram[(y*VRAM_TILES_H) + x];
-			
-			// Build up a bitmap representing a 2x2 grid extending from the tile.
-			// +-----+-----+
-			// |15 14|11 10|
-			// |13 12| 9  8|
-			// +-----+-----+
-			// | 7  6| 3  2|
-			// | 5  4| 1  0|
-			// +-----+-----+
-			unsigned int t = pgm_read_byte( &bg_col_map[(*tile)-RAM_TILES_COUNT]) << 12;
+		// Fill bottom row?
+		if( y < LEVEL_TILES_Y-1 ) {
+			t |= pgm_read_byte( &bg_col_map[(*(tile+VRAM_TILES_H))-RAM_TILES_COUNT] ) << 4;
 			if( x == VRAM_TILES_H-1 ) {
-				t |= pgm_read_byte( &bg_col_map[(*(tile-VRAM_TILES_H-1))-RAM_TILES_COUNT] ) << 8;
+				t |= pgm_read_byte( &bg_col_map[(*(tile+1))-RAM_TILES_COUNT] );
 			}
 			else {
-				t |= pgm_read_byte( &bg_col_map[(*(tile+1))-RAM_TILES_COUNT] ) << 8;
-			}
-
-			// Fill bottom row?
-			if( y < LEVEL_TILES_Y-1 ) {
-				t |= pgm_read_byte( &bg_col_map[(*(tile+VRAM_TILES_H))-RAM_TILES_COUNT] ) << 4;
-				if( x == VRAM_TILES_H-1 ) {
-					t |= pgm_read_byte( &bg_col_map[(*(tile+1))-RAM_TILES_COUNT] );
-				}
-				else {
-					t |= pgm_read_byte( &bg_col_map[(*(tile+VRAM_TILES_H+1))-RAM_TILES_COUNT] );
-				}
-			}
-
-			// No chance of collision if all tiles are empty.
-			if( t == 0 ) {
-				return 0;
-			}
-
-			// Do the same for the sprite, taking the offset into the 2x2
-			// tile grid into account.
-			unsigned int s = smap << 12;
-			if( offset_x != 0 ) {
-				// OR to the right
-				s |= ((s & 0xa000) >> 1)
-  				  |  ((s & 0x5000) >> 3);
-				if( offset_x > 3 ) {
-					// Shift right
-					s = ((s & 0xa000) >> 1)
-					  | ((s & 0x5000) >> 3)
-					  | ((s & 0x0a00) >> 1);
-				}
-			}
-
-			if( offset_y > 0 ) {
-				// OR downwards
-				s |= ((s & 0xcc00) >> 2)
-				  |  ((s & 0x3300) >> 6);
-				if( offset_y > 3 ) {
-					// Shift downwards
-					s = ((s & 0xcc00) >> 2)
-					  | ((s & 0x3300) >> 6)
-					  | ((s & 0x00cc) >> 2);
-				}
-			}
-	
-			// Now just AND the bitmasks - a collision will produce > 0;
-			if( s & t ) {
-				*tile_x = x;
-				*tile_y = y;
-				return s & t;
+				t |= pgm_read_byte( &bg_col_map[(*(tile+VRAM_TILES_H+1))-RAM_TILES_COUNT] );
 			}
 		}
-		return 0;
+
+		// No chance of collision if all tiles are empty.
+		if( t == 0 ) {
+			return 0;
+		}
+
+		// Do the same for the sprite, taking the offset into the 2x2
+		// tile grid into account.
+		unsigned int s = smap << 12;
+		if( offset_x != 0 ) {
+			// OR to the right
+			s |= ((s & 0xa000) >> 1)
+			  |  ((s & 0x5000) >> 3);
+			if( offset_x > 3 ) {
+				// Shift right
+				s = ((s & 0xa000) >> 1)
+				  | ((s & 0x5000) >> 3)
+				  | ((s & 0x0a00) >> 1);
+			}
+		}
+
+		if( offset_y > 0 ) {
+			// OR downwards
+			s |= ((s & 0xcc00) >> 2)
+			  |  ((s & 0x3300) >> 6);
+			if( offset_y > 3 ) {
+				// Shift downwards
+				s = ((s & 0xcc00) >> 2)
+				  | ((s & 0x3300) >> 6)
+				  | ((s & 0x00cc) >> 2);
+			}
+		}
+
+		// Now just AND the bitmasks - a collision will produce > 0;
+		if( s & t ) {
+			*tile_x = x;
+			*tile_y = y;
+			return s & t;
+		}
+	}
+	return 0;
 }
 
 void check_enemy_hit( int x, int y, bullet_status_t b ) {
@@ -1101,6 +1103,7 @@ void check_enemy_hit( int x, int y, bullet_status_t b ) {
 							enemies[i].anim_step = 0;
 							break;
 						case ENEMY_SPINNER:
+							fill_tiles( enemies[i].x, enemies[i].y, 4, 2, 0 );
 							enemies[i].id = ENEMY_EXP_3X2;
 							enemies[i].anim_step = 0;
 							break;
@@ -1129,14 +1132,24 @@ void check_colmap_hit( unsigned int col_map, int col_x, int col_y, bullet_status
 	}
 }
 
+int wait_start( int delay ) {
+	int i;
+
+	for( i=0 ; i<delay ; i++ ) {
+		WaitVsync(1);
+		if( ReadJoypad(0) & BTN_START ) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
 bool play_level( int level ){
 	int i;
-	bool alive = true;
-	bool complete = false;
-	int current_bullet = -1;
-	long old_score = score;
-	unsigned int col_map;
-	int col_x, col_y;
+	alive = true;
+	complete = false;
+	current_bullet = -1;
+	old_score = score;
 
 	while( alive && !complete ) {
 		unsigned int buttons = ReadJoypad(0);
@@ -1295,12 +1308,13 @@ void level_intro( int level ) {
 	bullet_charge = 0;
 	frame = 0;
 	clear_enemies();
-	enemy_pos = level1_enemies;
+	enemy_pos = (enemy_def_t*)pgm_read_word(&enemy_data[level-1]);
 	clear_sprites();
 	SetTileTable(tiles1);
 	SetSpriteVisibility(true);
 	SetScrolling(0,0);
-	level_load( (unsigned char*)level1_map );
+	scroll_countdown = 0;
+	scroll_speed = 5;
 
 	sprites[0].tileIndex = 1;
 	sprites[1].tileIndex = 0x09;
@@ -1317,6 +1331,7 @@ void level_intro( int level ) {
 	sprites[2].x = ship.x + 8;  sprites[2].y = ship.y + 8;
 	sprites[3].x = ship.x + 16; sprites[3].y = ship.y + 8;
 
+	set_tiles( level );
 	draw_starfield();
 	init_overlay();
 
@@ -1374,19 +1389,12 @@ void level_intro( int level ) {
 		}
 	}
 
-	level_load( (unsigned char*)level1_map );
-}
-
-int wait_start( int delay ) {
-	int i;
-
-	for( i=0 ; i<delay ; i++ ) {
-		WaitVsync(1);
-		if( ReadJoypad(0) & BTN_START ) {
-			return 1;
-		}
-	}
-	return 0;
+	// Reset our level housekeeping.
+	level_pos = (unsigned char *)pgm_read_word(&level_data[level-1]);
+	level_vram_column = ((Screen.scrollX/8) + VRAM_TILES_H)%VRAM_TILES_H;
+	level_column = 0;
+	level_col_repeat = 0;
+	level_prev_column = NULL;
 }
 
 int show_title() {
@@ -1398,11 +1406,10 @@ int show_title() {
 
 	DrawMap2( (SCREEN_TILES_H-16)/2, 8, title_map );
 
-	text_write((SCREEN_TILES_H-20)/2,23,str_copyright,false);	
+	text_write((SCREEN_TILES_H-20)/2,23,"c2011 STEVE MADDISON",false);	
 	FadeIn(FADE_SPEED,false);
-
 	for( i=0 ; i<TITLE_SECONDS ; i++ ) {
-		text_write((SCREEN_TILES_H-10)/2,19,str_push_start,false);
+		text_write((SCREEN_TILES_H-10)/2,19,"PUSH START",false);
 		if( wait_start(FPS/2) ) return 1;
 
 		fill_tiles((SCREEN_TILES_H-10)/2,19,10,1,0);
@@ -1423,11 +1430,11 @@ int show_hi_scores() {
 		SetTile(i,3,overlay_offset+52);
 		SetTile(i,22,overlay_offset+52);
 	}
-	text_write((SCREEN_TILES_H-10)/2,HI_SCORE_TOP-4,str_hi_scores,false);
+	text_write((SCREEN_TILES_H-10)/2,HI_SCORE_TOP-4,"HI  SCORES",false);
 
 	for( i=0 ; i<HIGH_SCORES ; i++ ) {
 		text_write_number(6,HI_SCORE_TOP+i,i+1,ALIGN_RIGHT,false);
-		text_write(7,HI_SCORE_TOP+i,str_dot,false);
+		text_write(7,HI_SCORE_TOP+i,".",false);
 		text_write(9,HI_SCORE_TOP+i,hi_name[i],false);
 		text_write_number(21,HI_SCORE_TOP+i,hi_score[i],ALIGN_RIGHT,false);
 	}
@@ -1444,7 +1451,7 @@ void game_over() {
 
 	ClearVram();
 
-	text_write((SCREEN_TILES_H-10)/2,23,str_game_over,false);
+	text_write((SCREEN_TILES_H-10)/2,23,"GAME  OVER",false);
 	FadeIn(FADE_SPEED*8,false);
 
 	for( int i=0 ; i < 88 ; i++ ) {
@@ -1461,17 +1468,17 @@ void game_over() {
 			position--;
 		}
 		if( position == 0 ) {
-			text_write((SCREEN_TILES_H-26)/2,5,str_highest_score,false);
+			text_write((SCREEN_TILES_H-26)/2,5,"YOU BEAT THE HIGHEST SCORE!",false);
 		}
 		else {
-			text_write((SCREEN_TILES_H-20)/2,5,str_high_score,false);
+			text_write((SCREEN_TILES_H-20)/2,5,"YOU GOT A HIGH SCORE!",false);
 		}
 
 		hi_name[position][0] = '\0';
 		hi_score[position] = score;
 
 		text_write_number((SCREEN_TILES_H-6)/2,8,position+1,ALIGN_LEFT,false);
-		text_write(((SCREEN_TILES_H-6)/2)+1,8,str_dot,false);
+		text_write(((SCREEN_TILES_H-6)/2)+1,8,".",false);
 
 		while( name_pos < 4 ) {
 			unsigned int buttons = ReadJoypad(0);
@@ -1591,7 +1598,7 @@ int main(){
 				// Game completed.
 			}
 			else {
-				game_over();
+				//game_over();
 			}
 		}
 	}
