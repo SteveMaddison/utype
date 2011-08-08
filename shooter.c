@@ -43,11 +43,22 @@ typedef enum {
 	ENEMY_EYEBALL,
 	ENEMY_TENTACLE,
 
+	// Level 2...
+	ENEMY_ALIEN,
+	ENEMY_SPIKE_BALL,
+	ENEMY_WORM,
+
 	// Level 3...
 	ENEMY_HORNET,
 
 	ENEMY_EXP_2X2,
 	ENEMY_EXP_3X2,
+
+	POWER_UP_SPEED,
+	POWER_UP_CHARGE,
+	POWER_UP_MISSILE,
+	POWER_UP_BOMB,
+
 	ENEMY_COUNT
 } enemy_id_t;
 
@@ -62,6 +73,10 @@ char enemy_hp[ENEMY_COUNT] PROGMEM = {
 	16,				// Eyeball
 	HP_INFINITE,	// Tentacle
 	
+	3,				// Alien
+	HP_INFINITE,	// Spike ball
+	25,				// Worm
+
 	3				// Hornet
 };
 
@@ -74,6 +89,10 @@ int enemy_score[ENEMY_COUNT] PROGMEM = {
 	2500,	// Eyeball
 	0,		// Tentacle
 	
+	300,	// Alien
+	0,		// Spike ball
+	3000,	// Worm
+
 	400		// Hornet
 };
 
@@ -117,7 +136,23 @@ char random_tiles[LEVELS+1][3] PROGMEM = {
 	{ 164+45, 164+46, 164+47 },
 	{ 59, 60, 61 },
 	{ 45, 46, 47 },
-	{ 45, 46, 47 }
+	{ 46, 100, 116 }
+};
+
+const char ship_map[2][6] PROGMEM = {
+	{ 4,1,	1,
+			9, 10, 11 },
+	{ 4,1,	17,
+			25, 26, 27 }
+};
+
+const char power_up_map[2][11] PROGMEM = {
+	{ 3,3,	54+164, 0, 55+164,
+			0,      0,  0,
+			56+164, 0, 57+164 },
+	{ 3,3,	39, 0, 40,
+			0,  0,  0,
+			41, 0, 42 }
 };
 
 #define EXPLOSION_FRAMES_S 2
@@ -248,7 +283,7 @@ const unsigned char bg_col_map[2][168+64] PROGMEM = {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,		
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02,   0x04, 0x08, 0x0f, 0x0f, 0x0f, 0x0f, 0x00, 0x00,		
 	},
 	{
 		// Overlay
@@ -261,7 +296,7 @@ const unsigned char bg_col_map[2][168+64] PROGMEM = {
 		0x0f, 0x0f, 0x01, 0x02, 0x0f, 0x0f, 0x0f, 0x02,   0x0f, 0x0f, 0x0f, 0x0f, 0x01, 0x01, 0x0f, 0x02,
 		0x0f, 0x0f, 0x0f, 0x0f, 0x00, 0x00, 0x00, 0x00,   0x00, 0x04, 0x08, 0x0f, 0x05, 0x0f, 0x0f, 0x0f,
 		0x0f, 0x0f, 0x0f, 0x0f, 0x00, 0x00, 0x00, 0x00,   0x00, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f,
-		0x00, 0x00, 0x00, 0x00, 0x05, 0x0b, 0x05, 0x0b,   0x00, 0x00, 0x00, 0x00, 0x0f, 0x0f, 0x0f, 0x0f,		
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x0b, 0x05,   0x0b, 0x00, 0x00, 0x00, 0x0f, 0x0f, 0x0f, 0x0f,		
 
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -288,6 +323,8 @@ typedef enum {
 #define SHIP_MAX_X ((SCREEN_TILES_H-3)*8)
 #define SHIP_MIN_Y 0
 #define SHIP_MAX_Y (((LEVEL_TILES_Y-2)*8)-4)
+#define SHIP_MAX_VOL   9
+#define SHIP_MAX_SPEED 3
 
 typedef enum {
 	STATUS_OK,
@@ -297,7 +334,9 @@ typedef enum {
 typedef struct {
 	int x;
 	int y;
-	int speed;
+	char speed;
+	char x_vol;
+	char y_vol;
 	status_t status;
 	int anim_step;
 } ship_t;
@@ -352,6 +391,7 @@ long old_score;
 unsigned int col_map;
 int col_x, col_y;
 char boss_enemies;
+char next_power_up;
 
 #define HIGH_SCORES 8
 #define MAX_SCORE 999999999
@@ -440,7 +480,7 @@ void level_draw_column( void ) {
 			unsigned char t = pgm_read_byte(p-1);
 			p++;
 			for( c=pgm_read_byte(p) ; c>0 ; c-- ) {
-				if( t == 0 && r == 0 ) {
+				if( t == 0 && r <= 0 ) {
 					// Random background filler
 					SetTile(level_vram_column,y,pgm_read_byte(&random_tiles[(int)level][random()%3]));
 					r = (random()%VRAM_TILES_H) + 1;
@@ -639,6 +679,13 @@ void clear_enemy( int e ) {
 		case ENEMY_EXP_3X2:
 			fill_tiles( enemies[e].x, enemies[e].y, 3, 2, 0 );
 			break;
+		// 3x3
+		case POWER_UP_SPEED:
+		case POWER_UP_CHARGE:
+		case POWER_UP_MISSILE:
+		case POWER_UP_BOMB:
+			fill_tiles( enemies[e].x, enemies[e].y, 3, 3, 0 );
+			break;
 		// 4x2
 		case ENEMY_SPINNER:
 			fill_tiles( enemies[e].x, enemies[e].y, 4, 2, 0 );		
@@ -834,6 +881,21 @@ void update_enemies() {
 						enemies[i].x--;
 					}
 					break;
+				case POWER_UP_SPEED:
+				case POWER_UP_CHARGE:
+				case POWER_UP_MISSILE:
+				case POWER_UP_BOMB:
+					if( enemies[i].anim_step % 30 == 0 ) {
+						draw_enemy( enemies[i].x, enemies[i].y, power_up_map[tileset] );
+						if( enemies[i].x+1 == VRAM_TILES_H ) {
+							SetTile( 0, enemies[i].y+1, 58 + overlay_offset + enemies[i].id-POWER_UP_SPEED );
+						}
+						else {
+							SetTile( enemies[i].x+1, enemies[i].y+1, 58 + overlay_offset + enemies[i].id-POWER_UP_SPEED );
+						}
+					}
+					break;
+
 				case ENEMY_EXP_2X2:
 					switch( enemies[i].anim_step % 30 ) {
 						case 0:
@@ -863,7 +925,14 @@ void update_enemies() {
 							break;
 						case 15:
 							fill_tiles( enemies[i].x, enemies[i].y, 3, 2, 0 );
-							clear_enemy(i);
+							if( --next_power_up <= 0 ) {
+								enemies[i].id = POWER_UP_SPEED + random()%4;
+								enemies[i].anim_step = -1;
+								next_power_up = 10 + random()%10;
+							}
+							else {
+								clear_enemy(i);
+							}
 							break;
 					}
 					break;
@@ -1100,7 +1169,7 @@ unsigned int col_check( int sprite, int *tile_x, int *tile_y ) {
 	return 0;
 }
 
-void check_enemy_hit( int x, int y, bullet_status_t b ) {
+bool check_enemy_hit( int x, int y, bullet_status_t b ) {
 	int i;
 	char hit = 0;
 	
@@ -1129,10 +1198,38 @@ void check_enemy_hit( int x, int y, bullet_status_t b ) {
 					hit = 1;
 				}
 				break;
+			case POWER_UP_SPEED:
+			case POWER_UP_CHARGE:
+			case POWER_UP_MISSILE:
+			case POWER_UP_BOMB:
+				if((x >= enemies[i].x && x <= enemies[i].x+2)
+				&& (y == enemies[i].y && y <= enemies[i].y+2) ) {
+					hit = 1;
+				}
+				break;
 			default:
 				break;
 		}
 		if( hit ) {
+			if( b == BULLET_FREE ) {
+				// Collison with ship
+				switch( enemies[i].id ) {
+					case POWER_UP_SPEED:
+					case POWER_UP_CHARGE:
+					case POWER_UP_MISSILE:
+					case POWER_UP_BOMB:
+						ship.speed++;
+						if( ship.speed > SHIP_MAX_SPEED ) {
+							ship.speed = SHIP_MAX_SPEED;
+						}
+						clear_enemy(i);
+						return false;
+						break;
+					default:
+						break;
+				}
+			}
+
 			if( enemies[i].hp != HP_INFINITE ) {
 				switch( b ) {
 					case BULLET_SMALL:
@@ -1175,25 +1272,28 @@ void check_enemy_hit( int x, int y, bullet_status_t b ) {
 							break;
 					}
 				}
-				return;
+				return true;
 			}
 		}
 	}
+	return false;
 }
 
-void check_colmap_hit( unsigned int col_map, int col_x, int col_y, bullet_status_t b ) {
+bool check_colmap_hit( unsigned int col_map, int col_x, int col_y, bullet_status_t b ) {
+	bool hit = false;
 	if( col_map & 0xf000 ) {
-		check_enemy_hit( col_x, col_y, b );
+		hit |= check_enemy_hit( col_x, col_y, b );
 	}
 	if( col_map & 0x0f00 ) {
-		check_enemy_hit( col_x+1, col_y, b );
+		hit |= check_enemy_hit( col_x+1, col_y, b );
 	}
 	if( col_map & 0x00f0 ) {
-		check_enemy_hit( col_x, col_y+1, b );
+		hit |= check_enemy_hit( col_x, col_y+1, b );
 	}
 	if( col_map & 0x000f ) {
-		check_enemy_hit( col_x+1, col_y+1, b );
+		hit |= check_enemy_hit( col_x+1, col_y+1, b );
 	}
+	return hit;
 }
 
 int wait_start( int delay ) {
@@ -1202,7 +1302,7 @@ int wait_start( int delay ) {
 	for( i=0 ; i<delay ; i++ ) {
 		WaitVsync(1);
 		if( ReadJoypad(0) & BTN_START ) {
-			return 1;
+			return i+1;
 		}
 	}
 	return 0;
@@ -1215,6 +1315,7 @@ bool play_level( int level ){
 	current_bullet = -1;
 	old_score = score;
 	boss_enemies = 0;
+	char speed;
 
 	while( alive && !complete ) {
 		unsigned int buttons = ReadJoypad(0);
@@ -1224,21 +1325,81 @@ bool play_level( int level ){
 		
 		if( ship.status == STATUS_OK ) {
 			if( buttons & BTN_LEFT ) {
-				ship.x -= ship.speed;
+				if( ship.x_vol > 0 ) {
+					ship.x_vol = 0;
+				}
+				else {
+					ship.x_vol--;
+				}
+				if( ship.x_vol < -SHIP_MAX_VOL ) {
+					ship.x_vol = -SHIP_MAX_VOL;
+				}
+				speed = ship.x_vol/3;
+				if( speed < -ship.speed ) {
+					speed = -ship.speed;
+				}
+				ship.x += speed;
 				if( ship.x < SHIP_MIN_X ) ship.x = SHIP_MIN_X;
 			}
 			else if( buttons & BTN_RIGHT ) {
-				ship.x += ship.speed;
+				if( ship.x_vol < 0 ) {
+					ship.x_vol = 0;
+				}
+				else {
+					ship.x_vol++;
+				}
+				if( ship.x_vol > SHIP_MAX_VOL ) {
+					ship.x_vol = SHIP_MAX_VOL;
+				}
+				speed = ship.x_vol/3;
+				if( speed > ship.speed ) {
+					speed = ship.speed;
+				}
+				ship.x += speed;
 				if( ship.x > SHIP_MAX_X ) ship.x = SHIP_MAX_X;
 			}
+			else {
+				ship.x_vol = 0;
+			}
+
 			if( buttons & BTN_UP ) {
-				ship.y -= ship.speed;
+				if( ship.y_vol > 0 ) {
+					ship.y_vol = 0;
+				}
+				else {
+					ship.y_vol--;
+				}
+				if( ship.y_vol < -SHIP_MAX_VOL ) {
+					ship.y_vol = -SHIP_MAX_VOL;
+				}
+				speed = ship.y_vol/3;
+				if( speed < -ship.speed ) {
+					speed = -ship.speed;
+				}
+				ship.y += speed;
 				if( ship.y < SHIP_MIN_Y ) ship.y = SHIP_MIN_Y;
 			}
 			else if( buttons & BTN_DOWN ) {
-				ship.y += ship.speed;
+				if( ship.y_vol < 0 ) {
+					ship.y_vol = 0;
+				}
+				else {
+					ship.y_vol++;
+				}
+				if( ship.y_vol > SHIP_MAX_VOL ) {
+					ship.y_vol = SHIP_MAX_VOL;
+				}
+				speed = ship.y_vol/3;
+				if( speed > ship.speed ) {
+					speed = ship.speed;
+				}
+				ship.y += speed;
 				if( ship.y > SHIP_MAX_Y ) ship.y = SHIP_MAX_Y;
 			}
+			else {
+				ship.y_vol = 0;
+			}
+
 			if( buttons & BTN_B ) {
 				if( current_bullet == -1 ) {
 					current_bullet = new_bullet();
@@ -1303,6 +1464,7 @@ bool play_level( int level ){
 
 		for( i=0 ; i<MAX_BULLETS ; i++ ) {
 			update_bullet(i);
+
 		}
 
 		// Collison detection
@@ -1311,12 +1473,14 @@ bool play_level( int level ){
 				col_map = col_check( i, &col_x, &col_y );
 				if( col_map ) {
 					if( i<SPRITE_BULLET1 ) {
-						// Ship has crashed
-						if( ship.status != STATUS_EXPLODING ) {
-							ship.status = STATUS_EXPLODING;
-							ship.anim_step = 16;
-							sprites[3].x -= 8;
-							sprites[3].y -= 8;
+						if( check_colmap_hit( col_map, col_x, col_y, BULLET_FREE ) ) {
+							// Ship has crashed
+							if( ship.status != STATUS_EXPLODING ) {
+								ship.status = STATUS_EXPLODING;
+								ship.anim_step = 16;
+								sprites[3].x -= 8;
+								sprites[3].y -= 8;
+							}
 						}
 					}
 					else if( i < SPRITE_BULLET1+MAX_BULLETS ) {
@@ -1358,13 +1522,18 @@ bool play_level( int level ){
 void draw_starfield( void ) {
 	int i;
 
-	srandom(43);
 	for( i=0 ; i<30 ; i++ ) {
 		SetTile(
 			random()%SCREEN_TILES_H,
 			random()%SCREEN_TILES_V,
 			pgm_read_byte(&random_tiles[(int)level][random()%3])
 		);
+	}
+	if( level == 4 ) {
+		// Draw in "lava".
+		for( i=0 ; i<VRAM_TILES_H ; i++ ) {
+			SetTile( i, VRAM_TILES_V-1, 112 );
+		}
 	}
 }
 
@@ -1384,11 +1553,14 @@ void level_intro( int level ) {
 	SetScrolling(0,0);
 	scroll_countdown = 0;
 	scroll_speed = 5;
+	next_power_up = 3 + random()%3;
 
-	sprites[0].tileIndex = 1;
-	sprites[1].tileIndex = 0x09;
-	sprites[2].tileIndex = 0x0a;
-	sprites[3].tileIndex = 0x0b;
+	if( level == 4 ) {
+		MapSprite( SPRITE_SHIP, ship_map[1] );
+	}
+	else {
+		MapSprite( SPRITE_SHIP, ship_map[0] );
+	}
 
 	ship.x = -24;
 	ship.y = SHIP_MAX_Y/2;
@@ -1467,10 +1639,11 @@ void level_intro( int level ) {
 }
 
 int show_title() {
-	int i;
+	int i,j;
 
 	FadeOut(FADE_SPEED,true);
 	ClearVram();
+	srandom(43);
 	draw_starfield();
 
 	DrawMap2( (SCREEN_TILES_H-16)/2, 8, title_map );
@@ -1479,10 +1652,10 @@ int show_title() {
 	FadeIn(FADE_SPEED,false);
 	for( i=0 ; i<TITLE_SECONDS ; i++ ) {
 		text_write((SCREEN_TILES_H-10)/2,19,"PUSH START",false);
-		if( wait_start(FPS/2) ) return 1;
+		if(( j = wait_start(FPS/2) )) return j;
 
 		fill_tiles((SCREEN_TILES_H-10)/2,19,10,1,0);
-		if( wait_start(FPS/2) ) return 1;
+		if(( j = wait_start(FPS/2) )) return j;
 	}
 	return 0;
 }
@@ -1509,7 +1682,7 @@ int show_hi_scores() {
 	}
 
 	FadeIn(FADE_SPEED,false);
-	if( wait_start(HISCORE_SECONDS*FPS) ) return 1;
+	if(( i = wait_start(HISCORE_SECONDS*FPS) )) return i;
 	return 0;
 }
 
@@ -1636,22 +1809,28 @@ int show_attract() {
 }
 
 int main(){
+	int r;
+
 	InitMusicPlayer(patches);
 	while(1) {
 		Screen.overlayHeight=0;
 		SetScrolling(0,0);
 		set_tiles( 0 );
 		ClearVram();
+
+		level = 0;		
+		set_tiles( 0 );
 //		while( ReadJoypad(0) == 0 );
 //		while( ReadJoypad(0) != 0 );
 
-		if( show_title() || show_attract() || show_hi_scores() ) {
+		if( (r = show_title()) || (r = show_attract()) || (r = show_hi_scores()) ) {
 			// Start was pressed...
 			FadeOut(FADE_SPEED,true);
-			level = 3;
+			level = 1;
 			score = 0;
 			lives = 0;
 
+			srandom(r);
 			do {
 				level_intro( level );
 				while( play_level(level) ) {
