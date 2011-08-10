@@ -1835,10 +1835,10 @@ int show_attract() {
 	}
 	update_enemies();
 
-	text_write( 11, POWER_UP_OFFSET+1, "SPEED UP", false );
-	text_write( 11, POWER_UP_OFFSET+6, "POWER BOMB", false );
-	text_write( 11, POWER_UP_OFFSET+11, "CHARGE BEAM", false );
-	text_write( 11, POWER_UP_OFFSET+16, "MISSILES", false );
+	text_write( 11, POWER_UP_OFFSET+5, "SPEED UP", false );
+	text_write( 11, POWER_UP_OFFSET+10, "POWER BOMB", false );
+	text_write( 11, POWER_UP_OFFSET+15, "CHARGE BEAM", false );
+	text_write( 11, POWER_UP_OFFSET+20, "MISSILES", false );
 
 	FadeIn(FADE_SPEED,false);
 	if(( i = wait_start(HISCORE_SECONDS*FPS) )) return i;
