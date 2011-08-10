@@ -97,15 +97,15 @@ int enemy_score[ENEMY_COUNT] PROGMEM = {
 };
 
 typedef struct {
-	char x;
-	char y;
-	enemy_id_t id;
+	int x;
+	unsigned char y;
+	char id;
 } enemy_def_t;
 
 typedef struct {
 	char x;
 	char y;
-	enemy_id_t id;
+	char id;
 	char hp;
 	int anim_step;
 	unsigned char whooshed;
@@ -332,12 +332,12 @@ typedef enum {
 } status_t;
 
 typedef struct {
-	int x;
-	int y;
+	unsigned char x;
+	unsigned char y;
 	char speed;
 	char x_vol;
 	char y_vol;
-	status_t status;
+	char status;
 	int anim_step;
 } ship_t;
 #define SPRITE_SHIP      0
@@ -351,9 +351,9 @@ typedef enum {
 } bullet_status_t;
 
 typedef struct {
-	int x;
-	int y;
-	bullet_status_t status;
+	unsigned char x;
+	unsigned char y;
+	char status;
 } bullet_t;
 #define SPRITE_BULLET1  4
 #define MAX_BULLETS     6
@@ -1249,7 +1249,7 @@ bool check_enemy_hit( int x, int y, bullet_status_t b ) {
 				}
 				if( enemies[i].hp <= 0 ) {
 					TriggerFx( SFX_EXP_S, 0xff, true );
-					score += pgm_read_word( &enemy_score[enemies[i].id] );
+					score += pgm_read_word( &enemy_score[(int)enemies[i].id] );
 					switch( enemies[i].id ) {
 						case ENEMY_EYEBALL:
 							fill_tiles( enemies[i].x-VRAM_TILES_H+5, enemies[i].y+1, VRAM_TILES_H-5, 2, 0 );
@@ -1338,8 +1338,12 @@ bool play_level( int level ){
 				if( speed < -ship.speed ) {
 					speed = -ship.speed;
 				}
-				ship.x += speed;
-				if( ship.x < SHIP_MIN_X ) ship.x = SHIP_MIN_X;
+				if( ship.x < -speed + SHIP_MIN_X ) {
+					ship.x = SHIP_MIN_X;
+				}
+				else {
+					ship.x += speed;
+				}
 			}
 			else if( buttons & BTN_RIGHT ) {
 				if( ship.x_vol < 0 ) {
@@ -1376,8 +1380,12 @@ bool play_level( int level ){
 				if( speed < -ship.speed ) {
 					speed = -ship.speed;
 				}
-				ship.y += speed;
-				if( ship.y < SHIP_MIN_Y ) ship.y = SHIP_MIN_Y;
+				if( ship.y < -speed + SHIP_MIN_Y ) {
+					ship.y = SHIP_MIN_Y;
+				}
+				else {
+					ship.y += speed;
+				}
 			}
 			else if( buttons & BTN_DOWN ) {
 				if( ship.y_vol < 0 ) {
@@ -1853,7 +1861,7 @@ int main(){
 			// Start was pressed...
 			FadeOut(FADE_SPEED,true);
 			level = 1;
-			score = 0;
+			score = SCREEN_TILES_H;
 			lives = 0;
 
 			srandom(r);
