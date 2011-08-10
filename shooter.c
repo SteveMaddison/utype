@@ -33,6 +33,8 @@ void SetScrolling(char sx,char sy);
 #include "data/sprites.inc"
 #include "data/sfx.inc"
 
+#define TILES_PER_SET 168
+
 typedef enum {
 	ENEMY_NONE,
 	// Level 1...
@@ -132,8 +134,8 @@ const enemy_def_t *enemy_data[LEVELS] PROGMEM = {
 };
 
 char random_tiles[LEVELS+1][3] PROGMEM = {
-	{ 164+45, 164+46, 164+47 },
-	{ 164+45, 164+46, 164+47 },
+	{ TILES_PER_SET+45, TILES_PER_SET+46, TILES_PER_SET+47 },
+	{ TILES_PER_SET+45, TILES_PER_SET+46, TILES_PER_SET+47 },
 	{ 59, 60, 61 },
 	{ 45, 46, 47 },
 	{ 46, 100, 116 }
@@ -147,9 +149,9 @@ const char ship_map[2][6] PROGMEM = {
 };
 
 const char power_up_map[2][11] PROGMEM = {
-	{ 3,3,	54+164, 0, 55+164,
+	{ 3,3,	54+TILES_PER_SET, 0, 55+TILES_PER_SET,
 			0,      0,  0,
-			56+164, 0, 57+164 },
+			56+TILES_PER_SET, 0, 57+TILES_PER_SET },
 	{ 3,3,	39, 0, 40,
 			0,  0,  0,
 			41, 0, 42 }
@@ -263,7 +265,7 @@ const unsigned char sprite_col_map[] PROGMEM = {
 	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f,
 	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f
 };
-const unsigned char bg_col_map[2][168+64] PROGMEM = {
+const unsigned char bg_col_map[2][TILES_PER_SET+64] PROGMEM = {
 	{
 		0x00, 0x07, 0x0b, 0x0d, 0x0e, 0x0f, 0x0f, 0x0f,   0x07, 0x0f, 0x07, 0x0b, 0x0f, 0x0f, 0x06, 0x09,
 		0x01, 0x0f, 0x0e, 0x07, 0x0f, 0x0b, 0x0f, 0x0f,   0x03, 0x03, 0x03, 0x07, 0x0b, 0x0f, 0x07, 0x0b,
@@ -403,7 +405,7 @@ void set_tiles( int level ) {
 	if( level < 3 ) {
 		SetTileTable(tiles1);
 		tileset = 0;
-		overlay_offset = 192-RAM_TILES_COUNT;
+		overlay_offset = TILES_PER_SET;
 	}
 	else {
 		SetTileTable(overlay_tiles);
@@ -660,6 +662,7 @@ void fill_tiles( int x, int y, int width, int height, unsigned char t ) {
 			}
 		}
 	}
+
 }
 
 void clear_enemy( int e ) {
