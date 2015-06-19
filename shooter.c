@@ -119,14 +119,14 @@ typedef struct {
 #include "data/level4.inc"
 #define LEVELS 4
 
-const unsigned char *level_data[LEVELS] PROGMEM = {
+const unsigned char * const level_data[LEVELS] PROGMEM = {
 	level1_map,
 	level2_map,
 	level3_map,
 	level4_map
 };
 
-const enemy_def_t *enemy_data[LEVELS] PROGMEM = {
+const enemy_def_t * const enemy_data[LEVELS] PROGMEM = {
 	level1_enemies,
 	level2_enemies,
 	level3_enemies,
