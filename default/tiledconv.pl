@@ -239,7 +239,7 @@ print "// Compression ratio   = ", int( ($bytes/($width*$height)*100) + 0.5 ), "
 print "\n";
 
 print "// Enemy list:\n";
-print "enemy_def_t ${name}_enemies[] PROGMEM = {\n";
+print "const enemy_def_t ${name}_enemies[] PROGMEM = {\n";
 foreach my $enemy_def ( @enemy_list) {
 	print "\t{ $enemy_def },\n";
 }

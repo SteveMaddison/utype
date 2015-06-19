@@ -66,7 +66,7 @@ typedef enum {
 
 #define MAX_ENEMIES  8
 #define HP_INFINITE -1
-char enemy_hp[ENEMY_COUNT] PROGMEM = {
+const char enemy_hp[ENEMY_COUNT] PROGMEM = {
 	0,
 	5,				// Mine
 	3,				// Mortar Launcher
@@ -82,7 +82,7 @@ char enemy_hp[ENEMY_COUNT] PROGMEM = {
 	3				// Hornet
 };
 
-int enemy_score[ENEMY_COUNT] PROGMEM = {
+const int enemy_score[ENEMY_COUNT] PROGMEM = {
 	0,
 	1000,	// Mine
 	1250,	// Mortar Launcher
@@ -133,7 +133,7 @@ const enemy_def_t *enemy_data[LEVELS] PROGMEM = {
 	level4_enemies
 };
 
-char random_tiles[LEVELS+1][3] PROGMEM = {
+const char random_tiles[LEVELS+1][3] PROGMEM = {
 	{ TILES_PER_SET+45, TILES_PER_SET+46, TILES_PER_SET+47 },
 	{ TILES_PER_SET+45, TILES_PER_SET+46, TILES_PER_SET+47 },
 	{ 59, 60, 61 },
@@ -187,14 +187,14 @@ const char whoosh_map[] PROGMEM = {
 			40, 41, 42, 43
 };
 
-char mine_map[2][6] PROGMEM = {
+const char mine_map[2][6] PROGMEM = {
 	{ 2,2,	30,31,
 			46,47 },
 	{ 2,2,	30,31,
 			62,47 }
 };
 
-char spinner_map[4][8] PROGMEM = {
+const char spinner_map[4][8] PROGMEM = {
 	{ 3,2,	68,69,70,
 			84,85,86 },
 	{ 3,2,	71,72,73,
@@ -205,32 +205,32 @@ char spinner_map[4][8] PROGMEM = {
 			93,94,95 }
 };
 
-char eyeball_map[2][6] PROGMEM = {
+const char eyeball_map[2][6] PROGMEM = {
 	{ 2,2,	66,67,
 			82,83 },
 	{ 2,2,	64,65,
 			80,81 }
 };
-char dead_eyeball_map[10] PROGMEM = {
+const char dead_eyeball_map[10] PROGMEM = {
 	2,4,	96,0,
 			0,66,
 			0,82,
 			48,0
 };
 
-char tentacle_map[2][6] PROGMEM = {
+const char tentacle_map[2][6] PROGMEM = {
 	{ 4,1,	50,51,50,51 },
 	{ 4,1,	51,50,51,50 }
 };
 
-char mortar_map[6] PROGMEM = {
+const char mortar_map[6] PROGMEM = {
 	2,2,	112,113,
 			128,129
 };
 #define MORTAR_TL	114
 #define MORTAR_BR	130
 
-char hornet_map[2][6] PROGMEM = {
+const char hornet_map[2][6] PROGMEM = {
 	{ 2,2,	101,102,
 			117,118 },
 	{ 2,2,	103,104,
@@ -238,7 +238,7 @@ char hornet_map[2][6] PROGMEM = {
 };
 
 
-char title_map[82] PROGMEM = {
+const char title_map[82] PROGMEM = {
 	16,5,	7,0,7,0, 6,6,6, 2,0,1, 6,6,2, 1,6,2,
 			7,0,7,0, 0,7,0, 7,0,7, 7,0,7, 7,0,7,
 			7,0,7,29,0,7,0, 3,6,4, 7,6,4, 7,6,4,
